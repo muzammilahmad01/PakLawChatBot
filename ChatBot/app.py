@@ -1,31 +1,32 @@
 import streamlit as st
-from chatbotlogic import SimpleChatbot
-import time
+from chatbotlogic import get_chatbot_response
 
 # Page configuration
 st.set_page_config(
-    page_title="Simple Q&A Chatbot",
-    page_icon="🤖",
-    layout="centered"
+    page_title="PakLaw ChatBot", 
+    layout="wide",
+    page_icon="⚖️"
 )
 
-# Title and description
-st.title("🤖 Simple Q&A Chatbot")
-st.markdown("Ask me anything! I'm powered by an open-source language model via Groq.")
+# Header
+st.title("⚖️ PakLaw ChatBot")
+st.markdown("---")
 
-# Initialize chatbot in session state (this persists across reruns)
-if 'chatbot' not in st.session_state:
-    try:
-        st.session_state.chatbot = SimpleChatbot()
-        st.session_state.chat_ready = True
-    except Exception as e:
-        st.error(f"Error initializing chatbot: {str(e)}")
-        st.error("Please check your Groq API key in the .env file")
-        st.session_state.chat_ready = False
+# Description
+st.markdown("""
+### Welcome to PakLaw ChatBot! 
+Ask me anything about Pakistani law, legal procedures, or general legal questions.
+I'm here to help with clear and concise answers.
+""")
 
 # Initialize chat history in session state
 if 'messages' not in st.session_state:
     st.session_state.messages = []
+    # Add a welcome message
+    st.session_state.messages.append({
+        "role": "assistant", 
+        "content": "Hello! I'm your PakLaw ChatBot. How can I help you with legal questions today?"
+    })
 
 # Display chat history
 for message in st.session_state.messages:
@@ -33,57 +34,68 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 # Chat input
-if prompt := st.chat_input("What would you like to know?"):
-    # Check if chatbot is ready
-    if not st.session_state.get('chat_ready', False):
-        st.error("Chatbot is not ready. Please check your configuration.")
-    else:
-        # Add user message to chat history
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+if prompt := st.chat_input("Ask me about Pakistani law or legal procedures..."):
+    # Add user message to chat history
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-        # Get bot response
-        with st.chat_message("assistant"):
-            message_placeholder = st.empty()
-            
+    # Get bot response
+    with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        with st.spinner("Analyzing your legal question..."):
             try:
-                # Show thinking indicator
-                with st.spinner("Thinking..."):
-                    response = st.session_state.chatbot.get_response(prompt)
-                
-                # Display response
-                message_placeholder.markdown(response)
-                
+                response = get_chatbot_response(prompt)
+                if not response or response.strip() == "":
+                    response = "I apologize, but I couldn't generate a proper response. Please try rephrasing your question."
             except Exception as e:
-                error_message = f"Sorry, I encountered an error: {str(e)}"
-                message_placeholder.markdown(error_message)
-                response = error_message
+                response = f"⚠️ Error occurred: {str(e)}\n\nPlease check your API configuration and try again."
+                st.error(f"Error details: {str(e)}")
+        
+        message_placeholder.markdown(response)
 
-        # Add assistant response to chat history
-        st.session_state.messages.append({"role": "assistant", "content": response})
+    # Add assistant response to chat history
+    st.session_state.messages.append({"role": "assistant", "content": response})
 
 # Sidebar with additional info
 with st.sidebar:
-    st.header("ℹ️ About")
-    st.write("This is a simple Q&A chatbot built with:")
-    st.write("- Streamlit for the UI")
-    st.write("- LangChain for LLM integration")
-    st.write("- Groq for fast inference")
-    st.write("- Llama 3 open-source model")
+    st.header("ℹ️ About PakLaw ChatBot")
+    st.write("""
+    This chatbot specializes in Pakistani legal information and is built with:
     
+    - **Streamlit** for the user interface
+    - **LangChain** for LLM integration  
+    - **Groq** for fast inference
+    - **Llama 3** as the language model
+    """)
+
     st.header("🔧 Controls")
-    if st.button("Clear Chat History"):
+    if st.button("🗑️ Clear Chat History"):
         st.session_state.messages = []
+        # Add welcome message back
+        st.session_state.messages.append({
+            "role": "assistant", 
+            "content": "Hello! I'm your PakLaw ChatBot. How can I help you with legal questions today?"
+        })
         st.rerun()
+
+    st.header("💡 Tips")
+    st.write("""
+    - Ask specific questions about Pakistani law
+    - Include context for better answers
+    - Be clear about the legal area you're asking about
+    - Remember: This is for informational purposes only
+    """)
     
-    # Show current model info
-    if st.session_state.get('chat_ready', False):
-        st.header("🤖 Model Info")
-        st.write(f"Model: {st.session_state.chatbot.model_name}")
-        st.write(f"Temperature: {st.session_state.chatbot.temperature}")
-        
-    st.header("🔑 Setup")
-    st.write("1. Get free Groq API key from groq.com")
-    st.write("2. Add it to .env file")
-    st.write("3. Restart the app")
+    st.header("⚠️ Disclaimer")
+    st.write("""
+    This chatbot provides general legal information only. 
+    Always consult with a qualified lawyer for specific legal advice.
+    """)
+
+# Footer
+st.markdown("---")
+st.markdown(
+    "<p style='text-align: center; color: gray;'>PakLaw ChatBot - Your AI Legal Assistant</p>", 
+    unsafe_allow_html=True
+)
