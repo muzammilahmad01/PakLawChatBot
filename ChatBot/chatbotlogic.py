@@ -3,30 +3,28 @@ import requests
 import json
 from dotenv import load_dotenv
 
-# ✅ Load environment variables at the start
+# ✅ Load environment variables
 load_dotenv()
 
-# Get Perplexity API key (change this line)
-perplexity_api_key = os.getenv("PERPLEXITY_API_KEY")
+# Get Groq API key
+groq_api_key = os.getenv("GROQ_API_KEY")
 
-if not perplexity_api_key:
-    raise ValueError("⚠️ PERPLEXITY_API_KEY is missing. Please set it in your .env file.")
+if not groq_api_key:
+    raise ValueError("⚠️ GROQ_API_KEY is missing. Please set it in your .env file.")
 
-# Remove the old LangChain and Groq imports/setup
-# Replace with Perplexity API endpoint
-PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions"
-SELECTED_MODEL = "sonar-pro"
+# Groq API endpoint & model
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+SELECTED_MODEL = "openai/gpt-oss-20b"
 
-# Replace your old get_chatbot_response function with this:
 def get_chatbot_response(user_input: str) -> str:
     """
-    Takes user input and returns chatbot response using Perplexity API.
+    Takes user input and returns chatbot response using Groq API.
     """
     try:
         headers = {
             "accept": "application/json",
             "content-type": "application/json",
-            "Authorization": f"Bearer {perplexity_api_key}"
+            "Authorization": f"Bearer {groq_api_key}"
         }
         
         payload = {
@@ -51,7 +49,7 @@ def get_chatbot_response(user_input: str) -> str:
         }
         
         response = requests.post(
-            PERPLEXITY_API_URL,
+            GROQ_API_URL,
             headers=headers,
             data=json.dumps(payload),
             timeout=30
@@ -70,13 +68,12 @@ def get_chatbot_response(user_input: str) -> str:
     except Exception as e:
         return f"⚠️ Error: {str(e)}"
 
-# Keep this for backward compatibility
+# Keep this for compatibility
 def get_response(user_input: str) -> str:
     return get_chatbot_response(user_input)
 
-# Testing section (optional)
 if __name__ == "__main__":
-    print("🤖 PakLaw ChatBot - Testing Mode (Perplexity API)")
+    print("🤖 PakLaw ChatBot - Testing Mode (Groq API)")
     while True:
         user_inp = input("You: ")
         if user_inp.lower() in ["quit", "exit", "bye"]:
