@@ -43,7 +43,7 @@ if prompt := st.chat_input("Ask me about Pakistani law or legal procedures..."):
     # Get bot response
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
-        with st.spinner("Analyzing your legal question..."):
+        with st.spinner("Analyzing your question..."):
             try:
                 response = get_chatbot_response(prompt)
                 if not response or response.strip() == "":
@@ -63,11 +63,11 @@ with st.sidebar:
     st.write("""
     This chatbot specializes in Pakistani legal information and is built with:
     
-    - **Streamlit** for the user interface
-    - **LangChain** for LLM integration  
-    - **Groq** for fast inference
-    - **Llama 3** as the language model
-    """)
+    This chatbot specializes in Pakistani legal information and is built with:
+- **Streamlit** for the user interface
+- **LangChain** for LLM integration  
+- **Gemini (Google AI)** for intelligent inference
+""")
 
     st.header("🔧 Controls")
     if st.button("🗑️ Clear Chat History"):

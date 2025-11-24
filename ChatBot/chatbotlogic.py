@@ -1,120 +1,66 @@
-# import os
-# import requests
-# import json
-# from dotenv import load_dotenv
-
-# # ✅ Load environment variables
-# load_dotenv()
-
-# # Get Groq API key
-# groq_api_key = os.getenv("GROQ_API_KEY")
-
-# if not groq_api_key:
-#     raise ValueError("⚠️ GROQ_API_KEY is missing. Please set it in your .env file.")
-
-# # Groq API endpoint & model
-# GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-# PPRIMARY_MODEL = "openai/gpt-oss-20b"
-# MODEL_FALLBACK = llama-3.3-70b-versatile
-
-# def get_chatbot_response(user_input: str) -> str:
-#     """
-#     Takes user input and returns chatbot response using Groq API.
-#     """
-#     try:
-#         headers = {
-#             "accept": "application/json",
-#             "content-type": "application/json",
-#             "Authorization": f"Bearer {groq_api_key}"
-#         }
-        
-#         payload = {
-#             "model": SELECTED_MODEL,
-#             "messages": [
-#                 {
-#                     "role": "system",
-#                     "content": (
-#                         "You are a helpful legal assistant chatbot specializing in Pakistani law. "
-#                         "Provide clear, concise, and accurate information about Pakistani legal matters, "
-#                         "procedures, and general legal concepts. Always include relevant sources and "
-#                         "remind users to consult with qualified lawyers for specific legal advice."
-#                     )
-#                 },
-#                 {
-#                     "role": "user",
-#                     "content": user_input
-#                 }
-#             ],
-#             "temperature": 0.7,
-#             "max_tokens": 1024
-#         }
-        
-#         response = requests.post(
-#             GROQ_API_URL,
-#             headers=headers,
-#             data=json.dumps(payload),
-#             timeout=30
-#         )
-        
-#         if response.status_code == 200:
-#             result = response.json()
-#             if 'choices' in result and len(result['choices']) > 0:
-#                 content = result['choices'][0]['message']['content']
-#                 return content.strip()
-#             else:
-#                 return "⚠️ Sorry, I couldn't generate a proper response. Please try again."
-#         else:
-#             return f"⚠️ API request failed: {response.status_code}. Please check your API key."
-            
-#     except Exception as e:
-#         return f"⚠️ Error: {str(e)}"
-
-# # Keep this for compatibility
-# def get_response(user_input: str) -> str:
-#     return get_chatbot_response(user_input)
-
-# if __name__ == "__main__":
-#     print("🤖 PakLaw ChatBot - Testing Mode (Groq API)")
-#     while True:
-#         user_inp = input("You: ")
-#         if user_inp.lower() in ["quit", "exit", "bye"]:
-#             print("Chatbot: Goodbye 👋")
-#             break
-#         bot_resp = get_chatbot_response(user_inp)
-#         print(f"Chatbot: {bot_resp}")
-#         print("-" * 40)
-
-
-
-
-
-from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.schema import SystemMessage, HumanMessage
 from dotenv import load_dotenv
 import os
 
 load_dotenv()
 
 # Load API key and models from .env
-groq_api_key = os.getenv("GROQ_API_KEY")
-primary_model = os.getenv("MODEL_PRIMARY", "openai/gpt-oss-20b")
-fallback_model = os.getenv("MODEL_FALLBACK", "llama-3.3-70b-versatile")
+# Note: The key is loaded automatically by ChatGoogleGenerativeAI if set as GEMINI_API_KEY
+gemini_api_key = os.getenv("GEMINI_API_KEY") 
+primary_model = os.getenv("MODEL_PRIMARY", "gemini-2.5-pro")
+fallback_model = os.getenv("MODEL_FALLBACK", "gemini-2.5-flash")
+
+# System prompt for the legal assistant persona
+SYSTEM_PROMPT = (
+    "You are a helpful legal assistant chatbot specializing in Pakistani law. "
+    "Provide clear, concise, and accurate information about Pakistani legal matters, "
+    "procedures, and general legal concepts. Always include relevant sources and "
+    "remind users to consult with qualified lawyers for specific legal advice."
+)
+
 
 def get_chatbot_response(user_input: str) -> str:
     """
-    Generate a response using Groq API with fallback model support.
+    Generate a response using Gemini API with fallback model support.
     """
+    if not gemini_api_key:
+        return "⚠️ GEMINI_API_KEY is missing. Please set it in your .env file."
+    
+    # Define the conversation history with the system prompt
+    messages = [
+        SystemMessage(content=SYSTEM_PROMPT),
+        HumanMessage(content=user_input)
+    ]
+
     try:
-        # Try with primary model
-        chat = ChatGroq(groq_api_key=groq_api_key, model_name=primary_model)
-        response = chat.invoke(user_input)
-       
-        return f" {response.content}"
+        # Try with primary model (e.g., gemini-2.5-pro for better reasoning)
+        chat_primary = ChatGoogleGenerativeAI(
+            model=primary_model, 
+            google_api_key=gemini_api_key, 
+            temperature=0.7
+        )
+        response = chat_primary.invoke(messages)
+        
+        return response.content
         
     except Exception as e1:
+        print(f"Primary model ({primary_model}) failed: {str(e1)}")
         try:
-            # If primary fails, switch to fallback
-            chat = ChatGroq(groq_api_key=groq_api_key, model_name=fallback_model)
-            response = chat.invoke(user_input)
-            return f" {response.content}"
+            # If primary fails, switch to fallback (e.g., gemini-2.5-flash for speed/cost)
+            chat_fallback = ChatGoogleGenerativeAI(
+                model=fallback_model, 
+                google_api_key=gemini_api_key,
+                temperature=0.7
+            )
+            response = chat_fallback.invoke(messages)
+            
+            # Indicate that the fallback model was used (optional, for debugging)
+            return f" (via Fallback) {response.content}"
+            
         except Exception as e2:
             return f"⚠️ Both models failed.\nPrimary error: {str(e1)}\nFallback error: {str(e2)}"
+
+# Keep this for compatibility
+def get_response(user_input: str) -> str:
+    return get_chatbot_response(user_input)
