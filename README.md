@@ -1,2 +1,16 @@
-Currently the model is very basic. Integrated only gemini model api key for the response. 
-Fallback model has been tested and is deployed in case of any api down or timeout issue the fallback model will be responsible to answer user queries.
+## 🆕 RAG (Retrieval Augmented Generation)
+
+The chatbot now uses RAG to answer questions based on actual Pakistani law documents!
+
+### Features:
+- 📚 Document-based answers with source citations
+- 🔍 Semantic search using HuggingFace embeddings
+- 📄 Supports PDF ingestion and chunking
+- 💾 ChromaDB vector store for efficient retrieval
+- 🎚️ Toggle RAG on/off in the UI
+
+### Setup:
+1. Install dependencies: `pip install -r requirements.txt`
+2. Add your GROQ_API_KEY to `.env`
+3. Ingest documents: `python ChatBot/ingest_documents.py test`
+4. Run the app: `streamlit run ChatBot/app.py`
