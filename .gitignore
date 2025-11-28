@@ -1,9 +1,10 @@
-# Environment variables (CRITICAL - protects your API keys)
+# Create or update .gitignore
+cat > .gitignore << 'EOF'
+# Environment variables (CRITICAL - contains API keys!)
 .env
-.env.local
-.env.*.local
+*.env
 
-# Python cache files
+# Python cache
 __pycache__/
 *.py[cod]
 *$py.class
@@ -13,62 +14,26 @@ __pycache__/
 venv/
 env/
 ENV/
-env.bak/
-venv.bak/
+
+# Vector stores (large binary files)
+ChatBot/vectorstores/
+vectorstores/
+
+# Data files (PDFs are too large for Git)
+data/
+FYP_DATA/
+*.pdf
 
 # IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
-# OS generated files
+# Antigravity artifacts
+.gemini/
+
+# OS files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
-
-# Jupyter Notebook checkpoints
-.ipynb_checkpoints
-
-# PyCharm
-.idea/
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Streamlit cache
-.streamlit/
-
-# Logs
-*.log
-
-# Model files (large files you might download)
-*.bin
-*.safetensors
-models/
-
-# Data files (if you add datasets later)
-data/
-*.csv
-*.json
-datasets/
+EOF
