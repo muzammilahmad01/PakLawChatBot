@@ -31,29 +31,45 @@ class VectorStoreManager:
         self.persist_directory = persist_directory
         self.collection_name = collection_name
         
-        print(f"[*] Initializing local sentence-transformers embeddings...")
+        print(f"[*] Initializing HuggingFace sentence-transformers embeddings...")
         
-        # Use HuggingFace embeddings with a small, efficient model
-        # This will download once and cache locally
+        # Suppress HuggingFace Hub warnings and errors
+        import os
+        import warnings
+        warnings.filterwarnings("ignore")
+        os.environ['HF_HUB_DISABLE_TELEMETRY'] = '1'
+        os.environ['TRANSFORMERS_VERBOSITY'] = 'error'
+        os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+        
+        # Use HuggingFace embeddings with all-MiniLM-L6-v2 model
         try:
-            import socket
-            # Set a timeout for network operations
-            socket.setdefaulttimeout(10)
-            
             self.embeddings = HuggingFaceEmbeddings(
-                model_name="all-MiniLM-L6-v2",
-                model_kwargs={'device': 'cpu'},
+                model_name="sentence-transformers/all-MiniLM-L6-v2",
+                model_kwargs={
+                    'device': 'cpu',
+                    'trust_remote_code': True
+                },
                 encode_kwargs={'normalize_embeddings': True}
             )
             print(f"[OK] Embeddings initialized successfully")
         except Exception as e:
-            print(f"[!] Error initializing HuggingFace embeddings: {e}")
-            print(f"    This is likely due to network timeout or model download issues.")
-            print(f"    Falling back to FakeEmbeddings (deterministic, no network needed)...")
-            # Fallback to a method that doesn't require downloads
-            from langchain_community.embeddings import FakeEmbeddings
-            self.embeddings = FakeEmbeddings(size=384)
-            print(f"[OK] Using FakeEmbeddings as fallback")
+            print(f"[WARN] First attempt failed: {e}")
+            print(f"[INFO] Trying with local_files_only...")
+            
+            try:
+                # Try loading from cache only
+                self.embeddings = HuggingFaceEmbeddings(
+                    model_name="sentence-transformers/all-MiniLM-L6-v2",
+                    model_kwargs={
+                        'device': 'cpu',
+                        'local_files_only': True
+                    },
+                    encode_kwargs={'normalize_embeddings': True}
+                )
+                print(f"[OK] Embeddings loaded from cache")
+            except Exception as e2:
+                print(f"[ERROR] Could not load embeddings: {e2}")
+                raise
         
         # Create persist directory if it doesn't exist
         os.makedirs(persist_directory, exist_ok=True)

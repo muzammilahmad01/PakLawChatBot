@@ -17,7 +17,7 @@ def ingest_test_pdf():
     print("=" * 60)
     
     # Path to test PDF (relative to ChatBot directory)
-    test_pdf = "../data/test_data/Pakistan's Constituion.pdf"
+    test_pdf = "../data/Pakistan's Constituion.pdf"
     
     if not os.path.exists(test_pdf):
         print(f"\n[ERROR] Test PDF not found at {test_pdf}")
@@ -99,29 +99,85 @@ def ingest_test_pdf():
 
 
 def ingest_full_dataset():
-    """Ingest all 320 PDFs from FYP_DATA (for later use)"""
+    """Ingest all PDFs from data/kpk_laws (45 departments)"""
     
     print("=" * 60)
     print("RAG Pipeline - Full Dataset Ingestion")
     print("=" * 60)
     
-    data_dir = "../FYP_DATA/kpk_laws"
+    data_dir = "../data/kpk_laws"
     
     if not os.path.exists(data_dir):
         print(f"\n[ERROR] Data directory not found at {data_dir}")
         return False
     
-    print(f"\n[*] Processing all PDFs from: {data_dir}")
+    print(f"\n[*] Scanning for PDFs in: {data_dir}")
+    
+    # First, collect all PDF paths
+    pdf_files = []
+    for root, dirs, files in os.walk(data_dir):
+        for file in files:
+            if file.lower().endswith('.pdf'):
+                pdf_files.append(os.path.join(root, file))
+    
+    total_pdfs = len(pdf_files)
+    print(f"[*] Found {total_pdfs} PDF files to process")
     print("[!] This will take several minutes...\n")
     
+    if total_pdfs == 0:
+        print("[ERROR] No PDF files found!")
+        return False
+    
     try:
-        # Step 1: Process all PDFs
+        # Step 1: Process PDFs with progress tracking
         print("Step 1: Loading and chunking all PDFs...")
         print("-" * 60)
-        processor = DocumentProcessor(chunk_size=1000, chunk_overlap=200)
-        chunks = processor.process_directory(data_dir, recursive=True)
         
-        if not chunks:
+        from document_processor import DocumentProcessor
+        processor = DocumentProcessor(chunk_size=1000, chunk_overlap=200)
+        
+        all_chunks = []
+        successful = 0
+        failed = 0
+        failed_files = []
+        
+        for i, pdf_path in enumerate(pdf_files, 1):
+            pdf_name = os.path.basename(pdf_path)
+            dept_name = os.path.basename(os.path.dirname(pdf_path))
+            
+            try:
+                # Show progress
+                print(f"\n[{i}/{total_pdfs}] Processing: {pdf_name[:50]}...")
+                print(f"    Department: {dept_name}")
+                
+                chunks = processor.process_pdf(pdf_path)
+                
+                if chunks:
+                    # Add department metadata
+                    for chunk in chunks:
+                        chunk.metadata['department'] = dept_name
+                    
+                    all_chunks.extend(chunks)
+                    successful += 1
+                    print(f"    [OK] Created {len(chunks)} chunks")
+                else:
+                    failed += 1
+                    failed_files.append(pdf_name)
+                    print(f"    [WARN] No chunks created")
+                    
+            except Exception as e:
+                failed += 1
+                failed_files.append(pdf_name)
+                print(f"    [ERROR] Failed: {str(e)[:50]}")
+                continue  # Skip to next PDF
+        
+        print("\n" + "-" * 60)
+        print(f"[Summary] Processed: {successful}/{total_pdfs} PDFs successfully")
+        print(f"          Total chunks: {len(all_chunks)}")
+        if failed > 0:
+            print(f"          Failed: {failed} PDFs")
+        
+        if not all_chunks:
             print("\n[ERROR] No chunks created. Aborting.")
             return False
         
@@ -135,16 +191,42 @@ def ingest_full_dataset():
             collection_name="kpk_laws_full"
         )
         
-        manager.create_vectorstore(chunks)
+        # Process in batches to avoid memory issues
+        batch_size = 500
+        total_batches = (len(all_chunks) + batch_size - 1) // batch_size
+        
+        print(f"[*] Creating vector store with {len(all_chunks)} chunks in {total_batches} batches...")
+        
+        for batch_num in range(total_batches):
+            start_idx = batch_num * batch_size
+            end_idx = min((batch_num + 1) * batch_size, len(all_chunks))
+            batch = all_chunks[start_idx:end_idx]
+            
+            print(f"\n[Batch {batch_num + 1}/{total_batches}] Processing chunks {start_idx + 1} to {end_idx}...")
+            
+            if batch_num == 0:
+                # Create new vector store with first batch
+                manager.create_vectorstore(batch)
+            else:
+                # Add subsequent batches
+                manager.add_documents(batch)
         
         # Success summary
         print("\n\n" + "=" * 60)
         print("[SUCCESS] FULL DATASET INGESTION COMPLETED")
         print("=" * 60)
         print(f"[Summary]:")
-        print(f"   - Total chunks: {len(chunks)}")
+        print(f"   - PDFs processed: {successful}/{total_pdfs}")
+        print(f"   - Total chunks: {len(all_chunks)}")
         print(f"   - Vector store: vectorstores/chroma_db_full")
         print(f"   - Collection: kpk_laws_full")
+        
+        if failed_files:
+            print(f"\n[WARN] Failed files ({len(failed_files)}):")
+            for f in failed_files[:5]:  # Show first 5
+                print(f"   - {f}")
+            if len(failed_files) > 5:
+                print(f"   ... and {len(failed_files) - 5} more")
         
         return True
         

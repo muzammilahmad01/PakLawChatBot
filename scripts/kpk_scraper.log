@@ -1,0 +1,13 @@
+2025-11-07 15:42:01,091 - INFO - Starting KPK Departmental Scraper
+2025-11-07 15:42:01,093 - INFO - Created base directory: C:/TEMP_FYP_DATA\kpk_laws
+2025-11-07 15:42:01,093 - ERROR - Critical error in main scraper: name 'law_entries' is not defined
+2025-11-07 15:42:31,936 - INFO - Starting KPK Departmental Scraper
+2025-11-07 15:42:31,936 - ERROR - Critical error in main scraper: name 'law_entries' is not defined
+2025-11-07 15:45:40,385 - INFO - Starting KPK Departmental Scraper
+2025-11-07 15:45:42,739 - ERROR - Critical error in main scraper: 404 Client Error: Not Found for url: https://www.pakp.gov.pk/acts-laws/
+2025-11-07 15:46:36,367 - INFO - Starting KPK Departmental Scraper
+2025-11-07 15:46:36,370 - INFO - Created base directory: C:/TEMP_FYP_DATA\kpk_laws
+2025-11-07 15:46:38,967 - ERROR - Critical error in main scraper: 404 Client Error: Not Found for url: https://www.pakp.gov.pk/acts-laws/
+2025-11-07 15:49:58,692 - INFO - Starting KPK Departmental Scraper
+2025-11-07 15:49:58,692 - INFO - Created base directory: C:/TEMP_FYP_DATA\kpk_laws
+2025-11-07 15:49:58,900 - INFO - Found 0 departments

@@ -13,12 +13,12 @@ from langchain_core.documents import Document
 class DocumentProcessor:
     """Process PDF documents for RAG pipeline"""
     
-    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
+    def __init__(self, chunk_size: int = 1500, chunk_overlap: int = 300):
         """
         Initialize document processor
         
         Args:
-            chunk_size: Size of text chunks for splitting
+            chunk_size: Size of text chunks for splitting (1500 optimal for legal docs)
             chunk_overlap: Overlap between chunks to maintain context
         """
         self.chunk_size = chunk_size

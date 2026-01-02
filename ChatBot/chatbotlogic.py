@@ -1,18 +1,28 @@
 import os
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.documents import Document
 
 # Load environment variables
 load_dotenv()
 
+# Try to import RAG components
+RAG_AVAILABLE = False
+HYBRID_AVAILABLE = False
+
 try:
     from vector_store import VectorStoreManager
     RAG_AVAILABLE = True
-except ImportError:
-    RAG_AVAILABLE = False
-    print("⚠️ RAG components not available. Running in basic mode.")
+except ImportError as e:
+    print(f"⚠️ Vector store not available: {e}")
+
+try:
+    from retriever import HybridRetriever, build_bm25_from_vectorstore
+    HYBRID_AVAILABLE = True
+except ImportError as e:
+    print(f"⚠️ Hybrid retriever not available: {e}. Using basic search.")
 
 # Load API key and models from .env
 groq_api_key = os.getenv("GROQ_API_KEY") 
@@ -35,11 +45,12 @@ RAG_SYSTEM_PROMPT = (
     "Always remind users to consult with qualified lawyers for specific legal advice."
 )
 
-# Global vector store manager (loaded once)
-_vector_store_manager: Optional[VectorStoreManager] = None
+# Global instances (loaded once)
+_vector_store_manager = None
+_hybrid_retriever = None
 
 
-def load_vector_store() -> Optional[VectorStoreManager]:
+def load_vector_store():
     """Load vector store (singleton pattern)"""
     global _vector_store_manager
     
@@ -80,9 +91,41 @@ def load_vector_store() -> Optional[VectorStoreManager]:
         return None
 
 
-def get_rag_response(user_input: str, k: int = 3) -> Dict[str, any]:
+def get_hybrid_retriever():
+    """Get or create hybrid retriever (singleton pattern)"""
+    global _hybrid_retriever
+    
+    if not HYBRID_AVAILABLE:
+        return None
+    
+    if _hybrid_retriever is not None:
+        return _hybrid_retriever
+    
+    vector_store = load_vector_store()
+    if vector_store is None or vector_store.vectorstore is None:
+        return None
+    
+    try:
+        # Extract documents from vectorstore for BM25 indexing
+        documents = build_bm25_from_vectorstore(vector_store.vectorstore)
+        
+        # Create hybrid retriever
+        _hybrid_retriever = HybridRetriever(
+            vectorstore=vector_store.vectorstore,
+            documents=documents
+        )
+        print("✓ Hybrid retriever initialized (Semantic + BM25)")
+        return _hybrid_retriever
+        
+    except Exception as e:
+        print(f"⚠️ Could not initialize hybrid retriever: {e}")
+        return None
+
+
+def get_rag_response(user_input: str, k: int = 5) -> Dict[str, any]:
     """
     Generate response using RAG (Retrieval Augmented Generation)
+    Uses Hybrid Search + Reranking if available
     
     Args:
         user_input: User's question
@@ -98,7 +141,6 @@ def get_rag_response(user_input: str, k: int = 3) -> Dict[str, any]:
             "context_used": False
         }
     
-    # Try to load vector store
     vector_store = load_vector_store()
     
     # If no RAG available, fall back to basic response
@@ -110,11 +152,22 @@ def get_rag_response(user_input: str, k: int = 3) -> Dict[str, any]:
         }
     
     try:
-        # Retrieve relevant documents
-        retrieved_docs = vector_store.search(user_input, k=k)
+        # Try hybrid retriever first, fall back to basic search
+        retriever = get_hybrid_retriever()
+        
+        if retriever is not None:
+            # Hybrid search with reranking
+            retrieved_docs = retriever.search(
+                query=user_input,
+                k=k,
+                use_hybrid=True,
+                use_rerank=True
+            )
+        else:
+            # Fallback to basic semantic search
+            retrieved_docs = vector_store.search(user_input, k=k)
         
         if not retrieved_docs:
-            # No relevant docs found, use basic response
             return {
                 "response": get_basic_response(user_input),
                 "sources": [],
@@ -136,7 +189,7 @@ def get_rag_response(user_input: str, k: int = 3) -> Dict[str, any]:
             sources.append({
                 "source": source_name,
                 "page": page_num,
-                "content_preview": doc.page_content[:150] + "..."
+                "preview": doc.page_content[:150] + "..."
             })
         
         context = "\n---\n".join(context_parts)
@@ -205,9 +258,7 @@ Please answer the question based on the provided context. Cite the specific docu
 
 
 def get_basic_response(user_input: str) -> str:
-    """
-    Generate basic response without RAG (original functionality)
-    """
+    """Generate basic response without RAG"""
     if not groq_api_key:
         return "⚠️ GROQ_API_KEY is missing. Please set it in your .env file."
     
@@ -240,18 +291,8 @@ def get_basic_response(user_input: str) -> str:
             return f"⚠️ Both models failed.\nPrimary error: {str(e1)}\nFallback error: {str(e2)}"
 
 
-# Main function - uses RAG by default
 def get_chatbot_response(user_input: str, use_rag: bool = True) -> str:
-    """
-    Generate chatbot response (with or without RAG)
-    
-    Args:
-        user_input: User's question
-        use_rag: Whether to use RAG (default: True)
-        
-    Returns:
-        String response (for backward compatibility)
-    """
+    """Generate chatbot response (with or without RAG)"""
     if use_rag and RAG_AVAILABLE:
         result = get_rag_response(user_input)
         return result["response"]
