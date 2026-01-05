@@ -61,7 +61,18 @@ def load_vector_store():
         return None
     
     try:
-        # Try to load test vector store first
+        # Try to load FULL vector store first (priority)
+        manager = VectorStoreManager(
+            persist_directory="vectorstores/chroma_db_full",
+            collection_name="kpk_laws_full"
+        )
+        
+        if manager.load_vectorstore() is not None:
+            _vector_store_manager = manager
+            print("✓ RAG enabled: Loaded full vector store (KPK Laws - 13k+ chunks)")
+            return _vector_store_manager
+        
+        # Fall back to test vector store if full doesn't exist
         manager = VectorStoreManager(
             persist_directory="vectorstores/chroma_db_test",
             collection_name="pakistan_constitution"
@@ -70,17 +81,6 @@ def load_vector_store():
         if manager.load_vectorstore() is not None:
             _vector_store_manager = manager
             print("✓ RAG enabled: Loaded test vector store (Pakistan Constitution)")
-            return _vector_store_manager
-        
-        # If test doesn't exist, try full dataset
-        manager = VectorStoreManager(
-            persist_directory="vectorstores/chroma_db_full",
-            collection_name="kpk_laws_full"
-        )
-        
-        if manager.load_vectorstore() is not None:
-            _vector_store_manager = manager
-            print("✓ RAG enabled: Loaded full vector store (320 KPK Laws)")
             return _vector_store_manager
         
         print("⚠️ No vector store found. Run ingestion first. Using basic mode.")

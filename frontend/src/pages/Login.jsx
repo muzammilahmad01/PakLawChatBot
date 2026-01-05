@@ -24,7 +24,7 @@ function Login() {
     try {
       setLoading(true);
       await signIn(email, password);
-      navigate('/chat');
+      navigate('/dashboard');
     } catch (err) {
       setError(err.message || 'Failed to sign in');
     } finally {

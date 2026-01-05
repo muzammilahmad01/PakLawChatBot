@@ -1,10 +1,23 @@
 import { sendChatMessage } from '../services/api';
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Chat.css';
 
+// Category display names
+const CATEGORY_NAMES = {
+    cyber: 'Cyber Crime Laws',
+    identity: 'Identity & NADRA Laws',
+    provincial: 'KPK Provincial Laws',
+    constitutional: 'Constitutional Rights',
+    general: 'General Legal Query'
+};
+
 function Chat() {
+    const [searchParams] = useSearchParams();
+    const category = searchParams.get('category') || 'general';
+    const categoryName = CATEGORY_NAMES[category] || 'Legal Assistant';
+
     const [messages, setMessages] = useState([]);
     const [inputValue, setInputValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -107,6 +120,12 @@ function Chat() {
             {/* Sidebar */}
             <aside className="sidebar">
                 <div className="sidebar-top">
+                    <button className="sidebar-btn" title="Back to Dashboard" onClick={() => navigate('/dashboard')}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                        </svg>
+                    </button>
                     <button className="sidebar-btn" title="New Chat" onClick={handleNewChat}>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -165,7 +184,8 @@ function Chat() {
                             <h1>Hey there, {displayName}</h1>
                         </div>
                         <div className="welcome-subtitle">
-                            <p>Your AI Legal Assistant for Pakistani Law</p>
+                            <p className="category-label">{categoryName}</p>
+                            <p>Ask me anything about this legal topic</p>
                         </div>
                     </div>
                 ) : (
