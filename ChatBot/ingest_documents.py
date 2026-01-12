@@ -238,6 +238,141 @@ def ingest_full_dataset():
         return False
 
 
+def ingest_additional_laws(folders=None):
+    """
+    Append additional law folders (PTA, NADRA) to existing vector store.
+    This does NOT re-process existing data - only adds new documents.
+    """
+    
+    print("=" * 60)
+    print("RAG Pipeline - Append Additional Laws")
+    print("=" * 60)
+    
+    # Default folders to ingest
+    if folders is None:
+        folders = ["pta_laws", "nadra_laws"]
+    
+    base_data_dir = "../data"
+    
+    try:
+        # Step 1: Load existing vector store
+        print("\n[*] Loading existing vector store...")
+        from vector_store import VectorStoreManager
+        from document_processor import DocumentProcessor
+        
+        vs_manager = VectorStoreManager(
+            persist_directory="vectorstores/chroma_db_full",
+            collection_name="paklaw_docs"
+        )
+        
+        if not vs_manager.load_vectorstore():
+            print("[ERROR] Could not load existing vector store!")
+            print("        Please run 'python ingest_documents.py full' first.")
+            return False
+        
+        # Get current count
+        initial_count = vs_manager.vectorstore._collection.count()
+        print(f"[*] Current chunks in store: {initial_count}")
+        
+        processor = DocumentProcessor(chunk_size=1000, chunk_overlap=200)
+        
+        total_new_chunks = 0
+        
+        # Step 2: Process each folder
+        for folder_name in folders:
+            folder_path = os.path.join(base_data_dir, folder_name)
+            
+            if not os.path.exists(folder_path):
+                print(f"\n[SKIP] Folder not found: {folder_path}")
+                continue
+            
+            print(f"\n{'='*60}")
+            print(f"Processing: {folder_name.upper()}")
+            print(f"Path: {folder_path}")
+            print("=" * 60)
+            
+            # Collect PDFs recursively
+            pdf_files = []
+            for root, dirs, files in os.walk(folder_path):
+                for file in files:
+                    if file.lower().endswith('.pdf'):
+                        pdf_files.append(os.path.join(root, file))
+            
+            print(f"[*] Found {len(pdf_files)} PDF files")
+            
+            if len(pdf_files) == 0:
+                print(f"[WARN] No PDFs in {folder_name}")
+                continue
+            
+            # Process each PDF
+            folder_chunks = []
+            successful = 0
+            failed = 0
+            
+            for i, pdf_path in enumerate(pdf_files, 1):
+                pdf_name = os.path.basename(pdf_path)
+                # Get category from subfolder
+                rel_path = os.path.relpath(pdf_path, folder_path)
+                category = os.path.dirname(rel_path) if os.path.dirname(rel_path) else folder_name
+                
+                try:
+                    print(f"  [{i}/{len(pdf_files)}] {pdf_name[:45]}...", end=" ")
+                    
+                    chunks = processor.process_pdf(pdf_path)
+                    
+                    if chunks:
+                        # Add metadata
+                        for chunk in chunks:
+                            chunk.metadata['department'] = folder_name
+                            chunk.metadata['category'] = category
+                            chunk.metadata['law_type'] = folder_name.replace('_laws', '').upper()
+                        
+                        folder_chunks.extend(chunks)
+                        successful += 1
+                        print(f"[OK] {len(chunks)} chunks")
+                    else:
+                        failed += 1
+                        print("[WARN] No chunks")
+                        
+                except Exception as e:
+                    failed += 1
+                    print(f"[ERROR] {str(e)[:30]}")
+                    continue
+            
+            # Add to vector store in batches
+            if folder_chunks:
+                print(f"\n[*] Adding {len(folder_chunks)} chunks to vector store...")
+                
+                batch_size = 500
+                for i in range(0, len(folder_chunks), batch_size):
+                    batch = folder_chunks[i:i + batch_size]
+                    vs_manager.add_documents(batch)
+                    print(f"    Added batch {i//batch_size + 1}/{(len(folder_chunks)-1)//batch_size + 1}")
+                
+                total_new_chunks += len(folder_chunks)
+            
+            print(f"\n[DONE] {folder_name}: {successful} PDFs, {len(folder_chunks)} chunks")
+        
+        # Final summary
+        final_count = vs_manager.vectorstore._collection.count()
+        
+        print("\n" + "=" * 60)
+        print("[SUCCESS] INGESTION COMPLETE")
+        print("=" * 60)
+        print(f"  Previous chunks: {initial_count}")
+        print(f"  New chunks added: {total_new_chunks}")
+        print(f"  Total chunks now: {final_count}")
+        
+        return True
+        
+    except Exception as e:
+        print(f"\n\n[ERROR] during ingestion:")
+        print(f"   {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 if __name__ == "__main__":
     # Default: Run test ingestion
     mode = sys.argv[1] if len(sys.argv) > 1 else "test"
@@ -246,9 +381,24 @@ if __name__ == "__main__":
         success = ingest_test_pdf()
     elif mode == "full":
         success = ingest_full_dataset()
+    elif mode == "append":
+        # Append PTA and NADRA laws to existing store
+        success = ingest_additional_laws()
+    elif mode == "pta":
+        # Only append PTA laws
+        success = ingest_additional_laws(["pta_laws"])
+    elif mode == "nadra":
+        # Only append NADRA laws
+        success = ingest_additional_laws(["nadra_laws"])
     else:
         print(f"Unknown mode: {mode}")
-        print("Usage: python ingest_documents.py [test|full]")
+        print("Usage: python ingest_documents.py [test|full|append|pta|nadra]")
+        print("  test   - Ingest single test PDF")
+        print("  full   - Ingest all KPK laws (creates new store)")
+        print("  append - Append PTA + NADRA laws to existing store")
+        print("  pta    - Append only PTA laws")
+        print("  nadra  - Append only NADRA laws")
         success = False
     
     sys.exit(0 if success else 1)
+
