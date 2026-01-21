@@ -26,24 +26,33 @@ except ImportError as e:
 
 # Load API key and models from .env
 groq_api_key = os.getenv("GROQ_API_KEY") 
-primary_model = os.getenv("MODEL_PRIMARY", "llama-3.3-70b-versatile")
-fallback_model = os.getenv("MODEL_FALLBACK", "llama-3.1-70b-versatile")
+primary_model = os.getenv("MODEL_PRIMARY", "openai/gpt-oss-120b")
+fallback_model = os.getenv("MODEL_FALLBACK", "openai/gpt-oss-20b")
 
 # System prompts
-BASIC_SYSTEM_PROMPT = (
-    "You are a helpful legal assistant chatbot specializing in Pakistani law. "
-    "Provide clear, concise, and accurate information about Pakistani legal matters, "
-    "procedures, and general legal concepts. Always include relevant sources and "
-    "remind users to consult with qualified lawyers for specific legal advice."
-)
+BASIC_SYSTEM_PROMPT = """You are PakLaw AI, a Pakistani legal assistant. Answer questions directly and simply.
 
-RAG_SYSTEM_PROMPT = (
-    "You are a helpful legal assistant chatbot specializing in Pakistani law. "
-    "You have access to official Pakistani legal documents. Use the provided context to answer questions accurately. "
-    "When referencing information from the context, cite the source document. "
-    "If the context doesn't contain relevant information, say so clearly and provide general guidance if possible. "
-    "Always remind users to consult with qualified lawyers for specific legal advice."
-)
+RULES:
+- Give the direct answer first, no preamble
+- Use simple, easy-to-understand language
+- Use numbered lists for multiple points
+- Keep responses concise (max 200 words unless listing items)
+- Bold important terms like **Article 25** or **Fundamental Rights**
+- End with: "Consult a qualified lawyer for specific advice.\""""
+
+RAG_SYSTEM_PROMPT = """You are PakLaw AI, a Pakistani legal assistant with access to legal documents.
+
+RULES:
+- Give the DIRECT ANSWER first in 1-2 sentences
+- DO NOT say "the documents don't contain" or "based on the provided context"
+- Just answer the question naturally using the context
+- Use simple, easy-to-understand language
+- For lists, use numbered format with bold headings:
+  1. **Right Name (Article X)** - Brief explanation
+  2. **Right Name (Article Y)** - Brief explanation
+- Keep explanations brief (1-2 sentences per point)
+- Bold key terms: **Article 25**, **Fundamental Rights**, **Section 4**
+- End with: "Consult a qualified lawyer for specific advice.\""""
 
 # Global instances (loaded once)
 _vector_store_manager = None
@@ -122,7 +131,7 @@ def get_hybrid_retriever():
         return None
 
 
-def get_rag_response(user_input: str, k: int = 5) -> Dict[str, any]:
+def get_rag_response(user_input: str, k: int = 5, category_filter: dict = None) -> Dict[str, any]:
     """
     Generate response using RAG (Retrieval Augmented Generation)
     Uses Hybrid Search + Reranking if available
@@ -130,6 +139,7 @@ def get_rag_response(user_input: str, k: int = 5) -> Dict[str, any]:
     Args:
         user_input: User's question
         k: Number of document chunks to retrieve
+        category_filter: Optional dict for filtering by category (e.g., {"department": "pta_laws"})
         
     Returns:
         Dict with 'response', 'sources', and 'context_used'
@@ -143,10 +153,10 @@ def get_rag_response(user_input: str, k: int = 5) -> Dict[str, any]:
     
     vector_store = load_vector_store()
     
-    # If no RAG available, fall back to basic response
+    # If no RAG available, inform user (NO fallback to general knowledge)
     if vector_store is None:
         return {
-            "response": get_basic_response(user_input),
+            "response": "⚠️ The legal document database is not available. Please ensure the vector store is loaded.",
             "sources": [],
             "context_used": False
         }
@@ -156,20 +166,21 @@ def get_rag_response(user_input: str, k: int = 5) -> Dict[str, any]:
         retriever = get_hybrid_retriever()
         
         if retriever is not None:
-            # Hybrid search with reranking
+            # Hybrid search with reranking and optional category filter
             retrieved_docs = retriever.search(
                 query=user_input,
                 k=k,
                 use_hybrid=True,
-                use_rerank=True
+                use_rerank=True,
+                filter_dict=category_filter
             )
         else:
-            # Fallback to basic semantic search
-            retrieved_docs = vector_store.search(user_input, k=k)
+            # Fallback to basic semantic search with filter
+            retrieved_docs = vector_store.search(user_input, k=k, filter_dict=category_filter)
         
         if not retrieved_docs:
             return {
-                "response": get_basic_response(user_input),
+                "response": "I couldn't find relevant information in the legal documents for your query. Please try rephrasing your question or ask about a specific law, article, or legal topic.",
                 "sources": [],
                 "context_used": False
             }

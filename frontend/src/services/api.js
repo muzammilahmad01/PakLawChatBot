@@ -1,6 +1,6 @@
 const API_URL = 'http://localhost:5000';
 
-export const sendChatMessage = async (message, useRag = true) => {
+export const sendChatMessage = async (message, useRag = true, category = null) => {
     try {
         const response = await fetch(`${API_URL}/api/chat`, {
             method: 'POST',
@@ -10,6 +10,7 @@ export const sendChatMessage = async (message, useRag = true) => {
             body: JSON.stringify({
                 message: message,
                 use_rag: useRag,
+                category: category,
             }),
         });
 

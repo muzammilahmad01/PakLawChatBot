@@ -2,6 +2,7 @@ import { sendChatMessage } from '../services/api';
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import ReactMarkdown from 'react-markdown';
 import './Chat.css';
 
 // Category display names
@@ -62,8 +63,8 @@ function Chat() {
         setIsLoading(true);
 
         try {
-            // Call the FastAPI backend
-            const result = await sendChatMessage(inputValue.trim());
+            // Call the FastAPI backend with category filter
+            const result = await sendChatMessage(inputValue.trim(), true, category);
 
             const botMessage = {
                 id: Date.now() + 1,
@@ -203,21 +204,10 @@ function Chat() {
                                         <div className="message-avatar user-msg-avatar">{userInitial}</div>
                                     )}
                                     <div className="message-content">
-                                        <p>{message.content}</p>
-                                        {message.sources && message.sources.length > 0 && (
-                                            <div className="message-sources">
-                                                <details>
-                                                    <summary>📚 Sources ({message.sources.length})</summary>
-                                                    <div className="sources-list">
-                                                        {message.sources.map((source, idx) => (
-                                                            <div key={idx} className="source-item">
-                                                                <strong>{source.source}</strong> (Page {source.page})
-                                                                <p className="source-preview">{source.preview}</p>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </details>
-                                            </div>
+                                        {message.type === 'bot' ? (
+                                            <ReactMarkdown>{message.content}</ReactMarkdown>
+                                        ) : (
+                                            <p>{message.content}</p>
                                         )}
                                     </div>
                                 </div>

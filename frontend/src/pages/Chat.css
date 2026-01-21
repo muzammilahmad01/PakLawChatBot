@@ -315,6 +315,35 @@
     white-space: pre-wrap;
 }
 
+/* Markdown Styling for Bot Messages */
+.bot-message .message-content strong {
+    color: #f0d55b;
+    font-weight: 600;
+}
+
+.bot-message .message-content ol,
+.bot-message .message-content ul {
+    margin: 12px 0;
+    padding-left: 24px;
+}
+
+.bot-message .message-content li {
+    margin: 8px 0;
+    line-height: 1.6;
+}
+
+.bot-message .message-content h1,
+.bot-message .message-content h2,
+.bot-message .message-content h3 {
+    color: #f0d55b;
+    margin: 16px 0 8px 0;
+    font-size: 1.1rem;
+}
+
+.bot-message .message-content p {
+    margin: 8px 0;
+}
+
 /* Sources */
 .message-sources {
     margin-top: 12px;

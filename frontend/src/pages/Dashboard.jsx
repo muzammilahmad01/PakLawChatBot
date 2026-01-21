@@ -18,20 +18,36 @@ function Dashboard() {
             description: 'Telecommunication laws, cyber crime prevention, digital regulations'
         },
         {
-            id: 'identity',
-            title: 'Identity & Registration',
-            subtitle: 'NADRA Laws',
+            id: 'criminal',
+            title: 'Criminal Laws',
+            subtitle: 'Criminal Code',
             icon: '🪪',
             color: '#8b5cf6',
-            description: 'CNIC, registration, identity verification laws'
+            description: 'Criminal Code, Penal Code, Criminal Procedure Code'
         },
         {
-            id: 'provincial',
-            title: 'Provincial Laws',
-            subtitle: 'KPK Acts & Regulations',
-            icon: '🏛️',
+            id: 'Family',
+            title: 'Family Laws',
+            subtitle: 'Family Code',
+            icon: '👨',
             color: '#10b981',
-            description: 'KPK provincial laws across 45 departments'
+            description: 'Family Code, Matrimonial laws, Child laws'
+        },
+        {
+            id: 'Property',
+            title: "Property & Land Laws",
+            subtitle: "Property Act, Land Act,",
+            icon: "🏠",
+            color: "#f59e0b",
+            description: "Property Act, Land Act, Succession Act"
+        },
+        {
+            id: "labour",
+            title: "Labour Laws",
+            subtitle: "Labour Act,",
+            icon: "👷",
+            color: "#148a6d",
+            description: "Labour Act"
         },
         {
             id: 'constitutional',
@@ -48,7 +64,8 @@ function Dashboard() {
             icon: '⚖️',
             color: '#ef4444',
             description: 'Ask anything about Pakistani law'
-        }
+        },
+
     ];
 
     const handleCategoryClick = (categoryId) => {

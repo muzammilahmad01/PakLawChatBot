@@ -16,10 +16,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Category to law_type mapping
+CATEGORY_FILTER_MAP = {
+    "cyber": "pta_laws",          # PTA/Cyber laws
+    "criminal": "criminal_laws",     # NADRA laws
+    "Family": "Family_Laws",      # Family Laws 
+    "labour":  "Labour_Laws",      # Labour Laws
+    "Property": "Land-Property_Laws",    # Property Laws
+    "constitutional": None,        # Constitution (no filter, search all)
+    "general": None,               # General query (no filter, search all)
+}
+
 # Request model
 class ChatRequest(BaseModel):
     message: str
     use_rag: bool = True
+    category: Optional[str] = None  # Category for filtering
 
 # Response model
 class ChatResponse(BaseModel):
@@ -40,7 +52,14 @@ async def chat(request: ChatRequest):
     """Handle chat messages and return responses from RAG pipeline"""
     try:
         if request.use_rag:
-            result = get_rag_response(request.message)
+            # Get filter based on category
+            category_filter = None
+            if request.category and request.category in CATEGORY_FILTER_MAP:
+                filter_value = CATEGORY_FILTER_MAP[request.category]
+                if filter_value:
+                    category_filter = {"department": filter_value}
+            
+            result = get_rag_response(request.message, category_filter=category_filter)
             return ChatResponse(
                 response=result["response"],
                 sources=result.get("sources", []),

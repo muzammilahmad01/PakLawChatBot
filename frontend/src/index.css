@@ -1,18 +1,33 @@
-/* Remove default Vite index styles */
+/* Global Styles - Dark Theme */
 :root {
   font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Oxygen, Ubuntu, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #213547;
-  background-color: #f5f7fa;
+  color: #ffffff;
+  background-color: #1a1a1a;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
 body {
   margin: 0;
+  padding: 0;
   min-width: 320px;
   min-height: 100vh;
+  background-color: #1a1a1a;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  background-color: #1a1a1a;
 }

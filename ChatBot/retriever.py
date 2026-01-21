@@ -52,15 +52,20 @@ class HybridRetriever:
         tokens = re.findall(r'\b\w+\b', text)
         return tokens
     
-    def semantic_search(self, query: str, k: int = 10) -> List[Tuple[Document, float]]:
+    def semantic_search(self, query: str, k: int = 10, filter_dict: dict = None) -> List[Tuple[Document, float]]:
         """
         Perform semantic search using embeddings
+        
+        Args:
+            query: Search query
+            k: Number of results
+            filter_dict: Optional metadata filter
         
         Returns:
             List of (document, score) tuples
         """
         try:
-            results = self.vectorstore.similarity_search_with_score(query, k=k)
+            results = self.vectorstore.similarity_search_with_score(query, k=k, filter=filter_dict)
             # Normalize scores (ChromaDB returns distance, lower is better)
             # Convert to similarity score (higher is better)
             normalized = []
@@ -217,7 +222,8 @@ class HybridRetriever:
         query: str, 
         k: int = 5,
         use_hybrid: bool = True,
-        use_rerank: bool = True
+        use_rerank: bool = True,
+        filter_dict: dict = None
     ) -> List[Document]:
         """
         Main search method - performs hybrid search with optional reranking
@@ -227,20 +233,65 @@ class HybridRetriever:
             k: Number of results
             use_hybrid: Whether to use hybrid search (vs semantic only)
             use_rerank: Whether to apply reranking
+            filter_dict: Optional metadata filter for category filtering
             
         Returns:
             List of relevant documents
         """
         if use_hybrid and self.bm25 is not None:
-            results = self.hybrid_search(query, k=k*2 if use_rerank else k)
+            # For hybrid search, we use semantic with filter, then combine with BM25
+            semantic_results = self.semantic_search(query, k=k*2, filter_dict=filter_dict)
+            bm25_results = self.bm25_search(query, k=k*2)
+            
+            # If we have a filter, filter BM25 results too
+            if filter_dict and bm25_results:
+                filtered_bm25 = []
+                for doc, score in bm25_results:
+                    match = True
+                    for key, value in filter_dict.items():
+                        if doc.metadata.get(key) != value:
+                            match = False
+                            break
+                    if match:
+                        filtered_bm25.append((doc, score))
+                bm25_results = filtered_bm25
+            
+            # Combine results using hybrid_search logic
+            results = self._combine_results(semantic_results, bm25_results, k=k*2 if use_rerank else k)
         else:
-            results = self.semantic_search(query, k=k*2 if use_rerank else k)
+            results = self.semantic_search(query, k=k*2 if use_rerank else k, filter_dict=filter_dict)
         
         if use_rerank and results:
             results = self.rerank(query, results, top_k=k)
         
         # Return just documents (without scores)
         return [doc for doc, score in results[:k]]
+    
+    def _combine_results(self, semantic_results, bm25_results, k: int):
+        """Combine semantic and BM25 results using RRF"""
+        rrf_constant = 60
+        doc_scores = {}
+        doc_objects = {}
+        
+        for rank, (doc, score) in enumerate(semantic_results):
+            doc_id = self._get_doc_id(doc)
+            rrf_score = 0.6 * (1 / (rank + rrf_constant))
+            doc_scores[doc_id] = doc_scores.get(doc_id, 0) + rrf_score
+            doc_objects[doc_id] = doc
+        
+        for rank, (doc, score) in enumerate(bm25_results):
+            doc_id = self._get_doc_id(doc)
+            rrf_score = 0.4 * (1 / (rank + rrf_constant))
+            doc_scores[doc_id] = doc_scores.get(doc_id, 0) + rrf_score
+            if doc_id not in doc_objects:
+                doc_objects[doc_id] = doc
+        
+        sorted_docs = sorted(
+            [(doc_objects[doc_id], score) for doc_id, score in doc_scores.items()],
+            key=lambda x: x[1],
+            reverse=True
+        )
+        return sorted_docs[:k]
     
     def search_with_scores(
         self, 
