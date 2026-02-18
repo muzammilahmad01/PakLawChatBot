@@ -73,12 +73,12 @@ def load_vector_store():
         # Try to load FULL vector store first (priority)
         manager = VectorStoreManager(
             persist_directory="vectorstores/chroma_db_full",
-            collection_name="kpk_laws_full"
+            collection_name="paklaw_docs"
         )
         
         if manager.load_vectorstore() is not None:
             _vector_store_manager = manager
-            print("✓ RAG enabled: Loaded full vector store (KPK Laws - 13k+ chunks)")
+            print("✓ RAG enabled: Loaded full vector store (PakLaw Docs)")
             return _vector_store_manager
         
         # Fall back to test vector store if full doesn't exist

@@ -373,6 +373,195 @@ def ingest_additional_laws(folders=None):
         return False
 
 
+def ingest_pakistan_code():
+    """
+    RESUMABLE ingestion: Process categories from data/pakistan_code/
+    If a vector store already exists, it checks which categories are 
+    already embedded and SKIPS them. Only processes remaining categories.
+    Safe to stop (Ctrl+C) and re-run — it picks up where it left off.
+    """
+    import time
+    start_time = time.time()
+    
+    print("=" * 60)
+    print("  RESUMABLE INGESTION - Pakistan Code Laws")
+    print("=" * 60)
+    
+    data_dir = "../data/pakistan_code"
+    
+    if not os.path.exists(data_dir):
+        print(f"\n[ERROR] Data directory not found: {data_dir}")
+        return False
+    
+    # Get all category folders (skip files like scrape_results.json)
+    categories = sorted([
+        d for d in os.listdir(data_dir) 
+        if os.path.isdir(os.path.join(data_dir, d))
+    ])
+    
+    # Initialize
+    processor = DocumentProcessor(chunk_size=1000, chunk_overlap=200)
+    vs_manager = VectorStoreManager(
+        persist_directory="vectorstores/chroma_db_full",
+        collection_name="paklaw_docs"
+    )
+    
+    # Check if vector store already exists (for resume)
+    already_done = set()
+    store_exists = False
+    
+    if vs_manager.load_vectorstore() is not None:
+        store_exists = True
+        try:
+            # Get all unique departments already in the store
+            collection = vs_manager.vectorstore._collection
+            existing_meta = collection.get(include=["metadatas"])
+            if existing_meta and existing_meta.get("metadatas"):
+                for meta in existing_meta["metadatas"]:
+                    dept = meta.get("department", "")
+                    if dept:
+                        already_done.add(dept)
+            
+            current_count = collection.count()
+            print(f"\n[*] Existing vector store found with {current_count} chunks")
+            if already_done:
+                print(f"[*] Categories already embedded ({len(already_done)}):")
+                for d in sorted(already_done):
+                    print(f"    ✓ {d} (DONE - will skip)")
+        except Exception as e:
+            print(f"[WARN] Could not read existing store metadata: {e}")
+    else:
+        print(f"\n[*] No existing vector store found. Starting fresh.")
+    
+    # Figure out which categories still need processing
+    remaining = [c for c in categories if c not in already_done]
+    
+    print(f"\n[*] Total categories: {len(categories)}")
+    print(f"[*] Already done:     {len(already_done)}")
+    print(f"[*] Remaining:        {len(remaining)}")
+    
+    if not remaining:
+        print("\n[OK] All categories are already embedded! Nothing to do.")
+        return True
+    
+    print(f"\n[*] Categories to process:")
+    total_pdfs = 0
+    for cat in remaining:
+        cat_path = os.path.join(data_dir, cat)
+        pdf_count = len([f for f in os.listdir(cat_path) if f.lower().endswith('.pdf')])
+        total_pdfs += pdf_count
+        print(f"    - {cat} ({pdf_count} PDFs)")
+    
+    print(f"\n[*] Total PDFs remaining: {total_pdfs}")
+    
+    try:
+        grand_total_chunks = 0
+        grand_total_success = 0
+        grand_total_failed = 0
+        
+        # Process each remaining category
+        for cat_idx, category in enumerate(remaining, 1):
+            cat_path = os.path.join(data_dir, category)
+            
+            # Get PDFs in this category
+            pdf_files = [
+                os.path.join(cat_path, f) 
+                for f in os.listdir(cat_path) 
+                if f.lower().endswith('.pdf')
+            ]
+            
+            if not pdf_files:
+                print(f"\n[{cat_idx}/{len(remaining)}] {category} - No PDFs, skipping")
+                continue
+            
+            print(f"\n{'─' * 60}")
+            print(f"[{cat_idx}/{len(remaining)}] {category} ({len(pdf_files)} PDFs)")
+            print(f"{'─' * 60}")
+            
+            cat_chunks = []
+            cat_success = 0
+            cat_failed = 0
+            
+            for i, pdf_path in enumerate(pdf_files, 1):
+                pdf_name = os.path.basename(pdf_path)
+                try:
+                    print(f"  [{i}/{len(pdf_files)}] {pdf_name[:55]}...", end=" ")
+                    
+                    chunks = processor.process_pdf(pdf_path)
+                    
+                    if chunks:
+                        # Tag chunks with category metadata
+                        for chunk in chunks:
+                            chunk.metadata['department'] = category
+                        
+                        cat_chunks.extend(chunks)
+                        cat_success += 1
+                        print(f"-> {len(chunks)} chunks")
+                    else:
+                        cat_failed += 1
+                        print("-> [WARN] No chunks")
+                        
+                except Exception as e:
+                    cat_failed += 1
+                    print(f"-> [ERROR] {str(e)[:40]}")
+                    continue
+            
+            # Add this category's chunks to vector store
+            if cat_chunks:
+                batch_size = 500
+                total_batches = (len(cat_chunks) + batch_size - 1) // batch_size
+                
+                for b in range(total_batches):
+                    start = b * batch_size
+                    end = min((b + 1) * batch_size, len(cat_chunks))
+                    batch = cat_chunks[start:end]
+                    
+                    if not store_exists:
+                        # First time ever — create the store
+                        vs_manager.create_vectorstore(batch)
+                        store_exists = True
+                    else:
+                        # Append to existing store
+                        vs_manager.add_documents(batch)
+                
+                print(f"  [OK] {category}: {cat_success} PDFs, {len(cat_chunks)} chunks embedded")
+            
+            grand_total_chunks += len(cat_chunks)
+            grand_total_success += cat_success
+            grand_total_failed += cat_failed
+        
+        # Final summary
+        elapsed = time.time() - start_time
+        mins = int(elapsed // 60)
+        secs = int(elapsed % 60)
+        
+        # Get total count in store
+        try:
+            final_count = vs_manager.vectorstore._collection.count()
+        except:
+            final_count = "unknown"
+        
+        print(f"\n\n{'=' * 60}")
+        print(f"  INGESTION COMPLETE!")
+        print(f"{'=' * 60}")
+        print(f"  New chunks added:    {grand_total_chunks}")
+        print(f"  PDFs processed:      {grand_total_success}")
+        print(f"  PDFs failed:         {grand_total_failed}")
+        print(f"  Total in store now:  {final_count}")
+        print(f"  Time taken:          {mins}m {secs}s")
+        print(f"{'=' * 60}")
+        print(f"\n  TIP: You can stop (Ctrl+C) and re-run anytime.")
+        print(f"  It will automatically skip already-done categories.")
+        
+        return grand_total_chunks > 0
+        
+    except Exception as e:
+        print(f"\n[ERROR] {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 if __name__ == "__main__":
     # Default: Run test ingestion
     mode = sys.argv[1] if len(sys.argv) > 1 else "test"
@@ -381,6 +570,8 @@ if __name__ == "__main__":
         success = ingest_test_pdf()
     elif mode == "full":
         success = ingest_full_dataset()
+    elif mode == "fresh":
+        success = ingest_pakistan_code()
     elif mode == "append":
         # Append PTA and NADRA laws to existing store
         success = ingest_additional_laws()
@@ -392,9 +583,10 @@ if __name__ == "__main__":
         success = ingest_additional_laws(["nadra_laws"])
     else:
         print(f"Unknown mode: {mode}")
-        print("Usage: python ingest_documents.py [test|full|append|pta|nadra]")
+        print("Usage: python ingest_documents.py [test|full|fresh|append|pta|nadra]")
         print("  test   - Ingest single test PDF")
         print("  full   - Ingest all KPK laws (creates new store)")
+        print("  fresh  - Ingest all Pakistan Code laws (creates new store)")
         print("  append - Append PTA + NADRA laws to existing store")
         print("  pta    - Append only PTA laws")
         print("  nadra  - Append only NADRA laws")
