@@ -107,7 +107,30 @@ class DocumentProcessor:
             List of chunked Document objects
         """
         chunks = self.text_splitter.split_documents(documents)
-        print(f"[OK] Created {len(chunks)} chunks from {len(documents)} pages")
+        
+        # Add contextual headers to each chunk
+        # This helps the embedding model understand WHAT document the text is from
+        for chunk in chunks:
+            source = chunk.metadata.get('source', '')
+            page = chunk.metadata.get('page', '')
+            department = chunk.metadata.get('department', '')
+            
+            # Build a context header
+            header_parts = []
+            if department:
+                header_parts.append(f"Category: {department.replace('_', ' ')}")
+            if source:
+                # Clean up source name (remove .pdf extension)
+                clean_source = source.replace('.pdf', '').replace('.PDF', '')
+                header_parts.append(f"Law: {clean_source}")
+            if page != '':
+                header_parts.append(f"Page: {page}")
+            
+            if header_parts:
+                header = " | ".join(header_parts)
+                chunk.page_content = f"[{header}]\n{chunk.page_content}"
+        
+        print(f"[OK] Created {len(chunks)} chunks from {len(documents)} pages (with contextual headers)")
         return chunks
     
     def process_pdf(self, pdf_path: str) -> List[Document]:

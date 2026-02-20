@@ -1,12 +1,93 @@
 """
 Advanced Retriever for RAG Pipeline
-Implements Hybrid Search (Semantic + BM25) and Reranking
+Implements Hybrid Search (Semantic + BM25), Reranking, and Query Expansion
 """
 
+import re
 import numpy as np
 from typing import List, Tuple, Optional, Dict, Any
 from rank_bm25 import BM25Okapi
 from langchain_core.documents import Document
+
+
+# Pakistani Legal Synonym Map for Query Expansion
+# Maps common terms to their legal equivalents and related terms
+LEGAL_SYNONYMS = {
+    # Criminal Law
+    "theft": ["stealing", "robbery", "larceny", "PPC Section 379", "dishonest misappropriation"],
+    "murder": ["homicide", "killing", "qatl", "PPC Section 302", "culpable homicide"],
+    "robbery": ["theft", "dacoity", "extortion", "PPC Section 392"],
+    "kidnapping": ["abduction", "PPC Section 359", "wrongful confinement"],
+    "fraud": ["cheating", "forgery", "dishonesty", "PPC Section 420", "misrepresentation"],
+    "bribery": ["corruption", "gratification", "NAB", "anti corruption"],
+    "assault": ["hurt", "grievous hurt", "battery", "PPC Section 332"],
+    "bail": ["surety", "bond", "CrPC Section 497", "pre-arrest bail", "post-arrest bail"],
+    
+    # Family Law
+    "divorce": ["talaq", "khula", "dissolution of marriage", "family courts act"],
+    "marriage": ["nikah", "Muslim Family Laws Ordinance", "marriage registration"],
+    "custody": ["guardianship", "hizanat", "minor", "guardian and wards act"],
+    "maintenance": ["nafaqa", "alimony", "financial support", "wife maintenance"],
+    "inheritance": ["succession", "wirasat", "Islamic inheritance", "succession act"],
+    "dower": ["haq mehr", "mahr", "mehr", "dowry"],
+    
+    # Property Law
+    "property": ["land", "real estate", "immovable property", "transfer of property act"],
+    "rent": ["tenancy", "lease", "landlord tenant", "rent restriction"],
+    "land": ["property", "agricultural land", "revenue", "land revenue act"],
+    "eviction": ["ejectment", "removal", "tenant eviction"],
+    
+    # Labour Law
+    "wages": ["salary", "payment of wages act", "minimum wages", "remuneration"],
+    "termination": ["dismissal", "removal from service", "wrongful termination"],
+    "pension": ["retirement benefits", "gratuity", "provident fund"],
+    "worker": ["employee", "labourer", "workman", "industrial worker"],
+    
+    # Constitutional
+    "fundamental rights": ["basic rights", "constitutional rights", "Part II", "Article 8 to 28"],
+    "freedom of speech": ["Article 19", "expression", "free speech", "press freedom"],
+    "right to education": ["Article 25A", "free education", "compulsory education"],
+    "equality": ["Article 25", "equal protection", "non-discrimination"],
+    
+    # Cyber/PTA
+    "cybercrime": ["electronic crime", "PECA", "online crime", "cyber offence"],
+    "data protection": ["privacy", "personal data", "information security"],
+    "defamation": ["libel", "slander", "online defamation", "PPC Section 499"],
+    
+    # General Legal Terms
+    "FIR": ["first information report", "police report", "complaint", "CrPC Section 154"],
+    "appeal": ["revision", "review", "appellate", "high court appeal"],
+    "writ": ["Article 199", "constitutional petition", "mandamus", "habeas corpus"],
+    "injunction": ["stay order", "restraining order", "temporary injunction"],
+    "evidence": ["proof", "witness", "Qanun-e-Shahadat", "testimony"],
+    "contract": ["agreement", "contract act 1872", "breach of contract"],
+    "tax": ["taxation", "income tax", "sales tax", "FBR", "revenue"],
+    "company": ["corporation", "companies act", "SECP", "corporate"],
+}
+
+
+def expand_query(query: str) -> str:
+    """
+    Expand query with legal synonyms to improve retrieval.
+    Returns the original query + relevant synonym terms appended.
+    """
+    query_lower = query.lower()
+    expansions = []
+    
+    for term, synonyms in LEGAL_SYNONYMS.items():
+        # Check if the term appears in the query
+        if term in query_lower:
+            # Add synonyms that aren't already in the query
+            for synonym in synonyms:
+                if synonym.lower() not in query_lower:
+                    expansions.append(synonym)
+    
+    if expansions:
+        # Limit to top 5 most relevant expansions to avoid noise
+        expanded = query + " " + " ".join(expansions[:5])
+        return expanded
+    
+    return query
 
 
 class HybridRetriever:
@@ -227,6 +308,7 @@ class HybridRetriever:
     ) -> List[Document]:
         """
         Main search method - performs hybrid search with optional reranking
+        Now includes Query Expansion for better recall.
         
         Args:
             query: Search query
@@ -238,10 +320,16 @@ class HybridRetriever:
         Returns:
             List of relevant documents
         """
+        # Step 1: Expand query with legal synonyms for better recall
+        expanded_query = expand_query(query)
+        if expanded_query != query:
+            print(f"[Query Expansion] '{query[:50]}...' -> added legal synonyms")
+        
         if use_hybrid and self.bm25 is not None:
-            # For hybrid search, we use semantic with filter, then combine with BM25
+            # Use expanded query for BM25 (keyword matching benefits most from expansion)
+            # Use original query for semantic (embeddings handle meaning already)
             semantic_results = self.semantic_search(query, k=k*2, filter_dict=filter_dict)
-            bm25_results = self.bm25_search(query, k=k*2)
+            bm25_results = self.bm25_search(expanded_query, k=k*2)
             
             # If we have a filter, filter BM25 results too
             if filter_dict and bm25_results:
@@ -262,6 +350,7 @@ class HybridRetriever:
             results = self.semantic_search(query, k=k*2 if use_rerank else k, filter_dict=filter_dict)
         
         if use_rerank and results:
+            # Rerank using original query (not expanded) for precision
             results = self.rerank(query, results, top_k=k)
         
         # Return just documents (without scores)
