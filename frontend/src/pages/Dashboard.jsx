@@ -65,6 +65,7 @@ function Dashboard() {
             gradient: 'linear-gradient(135deg, #ef4444, #f97316)',
             description: 'Ask anything about Pakistani law — all topics covered'
         },
+        
     ];
 
     const handleCategoryClick = (categoryId) => {
