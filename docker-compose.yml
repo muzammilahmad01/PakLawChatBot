@@ -9,7 +9,7 @@ services:
     ports:
       - "5000:5000"                 # Map host port 5000 → container port 5000
     env_file:
-      - .env                        # Pass API keys from .env file (NOT baked in image!)
+      - ChatBot/.env                # Pass API keys from ChatBot/.env file (NOT baked in image!)
     volumes:
       - ./ChatBot/vectorstores:/app/vectorstores  # Mount vector store data
     restart: unless-stopped
