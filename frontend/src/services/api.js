@@ -1,4 +1,5 @@
-const API_URL = 'http://localhost:5000';
+const API_URL = '';  // Empty = same origin, Nginx handles the proxy
+
 
 export const sendChatMessage = async (message, useRag = true, category = null) => {
     try {
