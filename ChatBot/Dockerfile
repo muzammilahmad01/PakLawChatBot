@@ -2,12 +2,14 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+RUN pip install --no-cache-dir torch --index-url \
+    https://download.pytorch.org/whl/cpu
 
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements-api.txt .
+RUN pip install --no-cache-dir -r requirements-api.txt
 
-COPY ChatBot .
+COPY ChatBot/ .
 
 EXPOSE 5000
 
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "5000", "--reload"]
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "5000"]
