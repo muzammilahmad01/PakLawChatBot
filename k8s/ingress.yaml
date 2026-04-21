@@ -1,0 +1,40 @@
+# ============================================
+# Ingress — Route external traffic (Optional)
+# ============================================
+# Use this if you have an Ingress Controller installed
+# (e.g., nginx-ingress). Otherwise, use the NodePort service.
+#
+# Install nginx-ingress:
+#   kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/cloud/deploy.yaml
+# ============================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: paklawchatbot-ingress
+  namespace: paklawchatbot
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: paklawai.local  # Change to your actual domain
+      http:
+        paths:
+          # Frontend — serves the React app
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+          # Backend API — proxied from frontend via nginx.conf,
+          # but also directly accessible if needed
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 5000

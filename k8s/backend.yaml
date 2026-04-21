@@ -1,0 +1,81 @@
+# ============================================
+# Backend — FastAPI + RAG Pipeline
+# ============================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: paklawchatbot
+  labels:
+    app: paklawchatbot
+    tier: backend
+spec:
+  replicas: 1  # Keep 1 replica — vector store is local on disk
+  selector:
+    matchLabels:
+      app: paklawchatbot
+      tier: backend
+  template:
+    metadata:
+      labels:
+        app: paklawchatbot
+        tier: backend
+    spec:
+      containers:
+        - name: backend
+          image: muzammil588/paklawchatbot-backend:latest  # Your built Docker image
+          imagePullPolicy: Always         # Use local image (change for registry)
+          ports:
+            - containerPort: 5000
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: backend-secrets
+          volumeMounts:
+            - name: vectorstore-data
+              mountPath: /app/vectorstores
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+          # Health checks
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 5000
+            initialDelaySeconds: 30   # Embeddings take time to load
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 5000
+            initialDelaySeconds: 60   # Give extra time for first startup
+            periodSeconds: 30
+            timeoutSeconds: 5
+      volumes:
+        - name: vectorstore-data
+          persistentVolumeClaim:
+            claimName: vectorstore-pvc
+---
+# Backend Service (ClusterIP — internal only, frontend proxies to it)
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: paklawchatbot
+  labels:
+    app: paklawchatbot
+    tier: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: paklawchatbot
+    tier: backend
+  ports:
+    - port: 5000
+      targetPort: 5000
+      protocol: TCP

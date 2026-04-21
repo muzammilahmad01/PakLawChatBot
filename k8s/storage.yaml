@@ -1,0 +1,23 @@
+# ============================================
+# PersistentVolumeClaim — Vector Store Data
+# ============================================
+# This persists the ChromaDB vector store data (19,006 chunks)
+# so it survives pod restarts.
+#
+# NOTE: For Minikube/local, the default StorageClass works.
+# For cloud (GKE/EKS/AKS), adjust storageClassName accordingly.
+# ============================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vectorstore-pvc
+  namespace: paklawchatbot
+  labels:
+    app: paklawchatbot
+spec:
+  accessModes:
+    - ReadWriteOnce       # Single pod reads/writes
+  resources:
+    requests:
+      storage: 2Gi        # Enough for vector store data
+  # storageClassName: standard  # Uncomment and change for your cluster

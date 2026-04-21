@@ -1,0 +1,11 @@
+# Don't copy these into the Docker image
+node_modules/
+__pycache__/
+.git/
+.env
+*.pyc
+ChatBot/vectorstores/    # Mounted as volume instead
+data/                    # PDFs only needed for ingestion
+.vscode/
+.idea/
+.gemini/

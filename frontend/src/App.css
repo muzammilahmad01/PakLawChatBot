@@ -1,0 +1,103 @@
+/* Global Styles — Pakistan Law Theme */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* Pakistan Green Palette */
+  --pk-green: #01411C;
+  --pk-green-light: #05632E;
+  --pk-green-lighter: #0a7c3a;
+  --pk-green-soft: #e8f5ec;
+  --pk-green-muted: #f0f8f3;
+
+  /* Gold / Justice */
+  --pk-gold: #c9a227;
+  --pk-gold-light: #f0d55b;
+
+  /* Neutrals */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f7f8fa;
+  --bg-tertiary: #eef0f3;
+  --text-primary: #1a1a2e;
+  --text-secondary: #4a5568;
+  --text-muted: #8896a6;
+  --border-light: #e2e6ec;
+  --border-lighter: #f0f1f4;
+}
+
+/* ============ DARK MODE ============ */
+[data-theme="dark"] {
+  /* Pakistan Green Palette (slightly brighter for dark bg) */
+  --pk-green: #0a8f3f;
+  --pk-green-light: #12a84d;
+  --pk-green-lighter: #1cc962;
+  --pk-green-soft: rgba(10, 143, 63, 0.12);
+  --pk-green-muted: rgba(10, 143, 63, 0.06);
+
+  /* Gold (warmer for dark) */
+  --pk-gold: #d4ad2e;
+  --pk-gold-light: #f0d55b;
+
+  /* Neutrals — Dark */
+  --bg-primary: #1a1b1e;
+  --bg-secondary: #141517;
+  --bg-tertiary: #222326;
+  --text-primary: #e8e9ed;
+  --text-secondary: #a1a5b0;
+  --text-muted: #6b7080;
+  --border-light: #2d2f33;
+  --border-lighter: #232529;
+}
+
+[data-theme="dark"] body {
+  background-color: #141517;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(10, 143, 63, 0.25);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(10, 143, 63, 0.4);
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(1, 65, 28, 0.15);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(1, 65, 28, 0.25);
+}
+
+::selection {
+  background: rgba(1, 65, 28, 0.15);
+  color: var(--pk-green);
+}

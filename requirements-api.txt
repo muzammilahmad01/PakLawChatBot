@@ -1,0 +1,29 @@
+# ============================================
+# Runtime API Dependencies for PakLaw ChatBot
+# (Only what the FastAPI server needs to run)
+# ============================================
+
+# --- FastAPI Server ---
+fastapi
+uvicorn[standard]
+pydantic
+
+# --- Environment Variables ---
+python-dotenv
+
+# --- LangChain Core + Groq LLM ---
+langchain
+langchain-core
+langchain-groq
+
+# --- Embeddings (HuggingFace) ---
+sentence-transformers
+langchain-huggingface
+
+# --- Vector Store (ChromaDB) ---
+chromadb
+langchain-chroma
+
+# --- Hybrid Search (BM25) ---
+rank_bm25
+numpy
