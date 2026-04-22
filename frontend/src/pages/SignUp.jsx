@@ -17,9 +17,13 @@ function SignUp() {
     const navigate = useNavigate();
     const { user, signUp, signInWithGoogle } = useAuth();
 
-    // If user is already logged in, redirect to dashboard
-    if (user) {
+    // If user is already logged in and verified, redirect to dashboard
+    if (user && user.email_confirmed_at) {
         return <Navigate to="/dashboard" replace />;
+    }
+    // If user exists but is NOT verified, send them to verify page
+    if (user && !user.email_confirmed_at) {
+        return <Navigate to="/verify-email" replace />;
     }
 
     const handleChange = (e) => {
@@ -53,17 +57,24 @@ function SignUp() {
 
         try {
             setLoading(true);
-            await signUp(formData.email, formData.password, formData.fullName, formData.username);
-            setSuccess('Account created successfully! Redirecting to login...');
-
-            // Redirect to login after 2 seconds
-            setTimeout(() => {
-                navigate('/verify-email');
-            }, 2000);
+            const result = await signUp(formData.email, formData.password, formData.fullName, formData.username);
+            
+            // If email confirmation is required, Supabase returns user but no session
+            // The component's top-level redirect will handle navigation to /verify-email
+            if (result.user && !result.session) {
+                setSuccess('Verification email sent! Please check your inbox to confirm your account.');
+                // Navigate to verify-email after brief delay to show the message
+                setTimeout(() => {
+                    navigate('/verify-email');
+                }, 2000);
+            } else {
+                // If auto-confirmed (e.g. dev mode), redirect to dashboard
+                navigate('/dashboard');
+            }
         } catch (err) {
             console.error(err);
             // Generic error message to prevent account enumeration
-            setError('Account verification pending or an error occurred during signup.');
+            setError('Unable to create account. Please try again or use a different email.');
         } finally {
             setLoading(false);
         }

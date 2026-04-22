@@ -11,9 +11,13 @@ function Login() {
   const navigate = useNavigate();
   const { user, signIn, signInWithGoogle } = useAuth();
 
-  // If user is already logged in, redirect to dashboard
-  if (user) {
+  // If user is already logged in and verified, redirect to dashboard
+  if (user && user.email_confirmed_at) {
     return <Navigate to="/dashboard" replace />;
+  }
+  // If user exists but is NOT verified, send them to verify page
+  if (user && !user.email_confirmed_at) {
+    return <Navigate to="/verify-email" replace />;
   }
 
   const handleSubmit = async (e) => {
