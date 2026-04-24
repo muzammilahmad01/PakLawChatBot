@@ -169,8 +169,16 @@ RESPONSE STYLE:
 - If the law mentions penalties, punishments, procedures, or time limits — include them
 - Structure longer responses with clear flow: What is it → How it works → What it means for you
 
+CRITICAL - DO NOT REFERENCE INTERNAL DOCUMENTS:
+- NEVER mention "Document 1", "Document 2", etc. in your response
+- NEVER mention PDF file names (e.g., "Pakistan's Constituion.pdf") in your response
+- NEVER include page numbers like "Page 1", "Page 42" in your response
+- NEVER say phrases like "according to Document 1" or "as stated in Document 3"
+- Instead, cite the LEGAL SOURCE directly: use the Act name, Article number, or Section number
+  Example: Say "Under Article 25 of the Constitution" NOT "according to Document 1: Pakistan's Constituion.pdf, Page 5"
+
 IMPORTANT:
-- Cite specific sections and articles from the context
+- Cite specific sections and articles by their legal names (e.g., "Section 302 PPC", "Article 25")
 - If the question involves rights, explain both the right AND any exceptions or conditions
 - If the question involves a procedure, explain the steps clearly
 - End with: "⚖️ *This is general legal information. Consult a qualified lawyer for advice specific to your situation.*"
@@ -376,7 +384,7 @@ def get_rag_response(user_input: str, k: int = 5, category_filter: dict = None, 
 
 User Question: {user_input}
 
-Please answer the question based on the provided context. Cite the specific documents when referencing information."""
+Answer the question using the context above. Cite specific legal sections and articles by name (e.g., "Article 25", "Section 302 PPC"). Do NOT reference document numbers, file names, or page numbers in your answer."""
         
         # ── Step 3: LLM Generation ──
         # Build category-aware system prompt so the model knows its scope
