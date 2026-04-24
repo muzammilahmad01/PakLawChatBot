@@ -50,6 +50,63 @@ IMPORTANT:
 - End with: "⚖️ *This is general legal information. Consult a qualified lawyer for advice specific to your situation.*"
 """
 
+# Prompt for off-topic / non-legal questions (greetings, math, general chat)
+OFF_TOPIC_SYSTEM_PROMPT = """You are PakLawChatBot, a Pakistani legal assistant.
+
+The user has asked a question that is NOT about Pakistani law. Handle it as follows:
+
+1. If it's a GREETING (hello, hi, how are you, etc.):
+   - Respond warmly in 1-2 sentences (e.g., "Hello! I'm PakLawChatBot, your Pakistani legal assistant. How can I help you with legal matters today?")
+   - Do NOT add any legal content or articles
+
+2. If it's a SIMPLE FACTUAL/MATH question (what is 5+7, capital of France, etc.):
+   - Give the brief, correct answer in ONE sentence
+   - Then add: "However, I'm specialized in Pakistani law. Feel free to ask me any legal questions — I'm here to help! ⚖️"
+
+3. If it's GENERAL CHAT or completely off-topic:
+   - Acknowledge briefly
+   - Politely redirect: "I'm PakLawChatBot, designed to help with Pakistani legal questions. Try asking about constitutional rights, criminal law, family law, or any other legal topic! ⚖️"
+
+CRITICAL RULES:
+- Keep your response SHORT — maximum 2-4 sentences total
+- Do NOT force any legal articles, sections, or law references into non-legal answers
+- Do NOT add the disclaimer footer for off-topic questions
+- Be friendly and professional
+"""
+
+
+# ─── Off-topic Query Detection ───
+# Fast keyword-based check to skip expensive RAG retrieval for non-legal queries
+GREETING_PATTERNS = {
+    'hello', 'hi', 'hey', 'good morning', 'good afternoon', 'good evening',
+    'how are you', 'how r u', 'howdy', 'sup', 'whats up', "what's up",
+    'assalam', 'salam', 'aoa', 'greetings', 'thanks', 'thank you',
+    'bye', 'goodbye', 'see you', 'good night'
+}
+
+def is_off_topic(query: str) -> bool:
+    """
+    Fast check: Is this query clearly NOT a legal question?
+    Returns True for greetings, math, and obvious non-legal queries.
+    This allows us to skip the expensive RAG retrieval entirely.
+    """
+    q = query.strip().lower()
+    
+    # Very short queries (1-3 words) that are greetings
+    if len(q.split()) <= 4:
+        for pattern in GREETING_PATTERNS:
+            if pattern in q:
+                return True
+    
+    # Pure math expressions: "5+7", "what is 2*3", etc.
+    import re
+    # Remove common question starters
+    cleaned = re.sub(r'^(what\s+is|calculate|solve|whats|what\'s)\s*', '', q)
+    if re.match(r'^[\d\s+\-*/().^%=]+$', cleaned.strip()) and len(cleaned.strip()) > 0:
+        return True
+    
+    return False
+
 RAG_SYSTEM_PROMPT = """You are PakLawChatBot, a knowledgeable Pakistani legal assistant with access to legal documents and statutes.
 
 RESPONSE STYLE:
@@ -312,6 +369,32 @@ def get_rag_response(user_input: str, k: int = 5, category_filter: dict = None, 
             "context_used": False
         }
     
+    # 1. Check for off-topic queries — skip expensive RAG retrieval
+    if is_off_topic(user_input):
+        try:
+            client = _get_groq_client()
+            off_topic_response = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": OFF_TOPIC_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_input}
+                ],
+                temperature=0.5,
+                max_tokens=200,
+            )
+            return {
+                "response": off_topic_response.choices[0].message.content,
+                "sources": [],
+                "context_used": False
+            }
+        except Exception as e:
+            print(f"[WARN] Off-topic LLM call failed: {e}")
+            return {
+                "response": "Hello! I'm PakLawChatBot, your Pakistani legal assistant. How can I help you with legal matters today? ⚖️",
+                "sources": [],
+                "context_used": False
+            }
+
     vector_store = load_vector_store()
     
     # If no RAG available, inform user (NO fallback to general knowledge)

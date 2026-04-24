@@ -19,6 +19,13 @@ async def startup_preload():
         retriever = get_hybrid_retriever()
         if retriever:
             print("[OK] Hybrid retriever ready at startup")
+        # Warmup: run a dummy search so the embedding model is fully hot
+        try:
+            print("[*] Warming up embedding model with dummy query...")
+            _ = vs.vectorstore.similarity_search("warmup query", k=1)
+            print("[OK] Embedding model warmed up — first query will be fast")
+        except Exception as e:
+            print(f"[WARN] Warmup failed (non-critical): {e}")
     else:
         print("[WARN] Vector store not available — will use basic mode")
 
