@@ -26,6 +26,7 @@ function Dashboard() {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState(null);
     const [isSearching, setIsSearching] = useState(false);
+    const [showRecent, setShowRecent] = useState(false);
 
     const displayName = profile?.full_name || profile?.username || user?.email?.split('@')[0] || 'User';
 
@@ -240,87 +241,106 @@ function Dashboard() {
                     <h2>What legal topic can I help you with?</h2>
                     <p>Select a category below for specialized legal assistance powered by AI</p>
                     
-                    {/* Global Search Bar */}
-                    <div className="global-search-container">
-                        <div className="search-input-wrapper">
-                            <svg className="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="11" cy="11" r="8"></circle>
-                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                            </svg>
-                            <input
-                                type="text"
-                                placeholder="Search past conversations..."
-                                value={searchQuery}
-                                onChange={handleSearch}
-                                className="global-search-input"
-                            />
+                    {/* Search Bar + Recent Conversations Row */}
+                    <div className="search-recent-row">
+                        <div className="global-search-container">
+                            <div className="search-input-wrapper">
+                                <svg className="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                </svg>
+                                <input
+                                    type="text"
+                                    placeholder="Search past conversations..."
+                                    value={searchQuery}
+                                    onChange={handleSearch}
+                                    className="global-search-input"
+                                />
+                            </div>
+
+                            {/* Search Results Dropdown */}
+                            {searchQuery.trim() && (
+                                <div className="search-results-dropdown">
+                                    {isSearching ? (
+                                        <div className="search-result-item loading">Searching...</div>
+                                    ) : searchResults && searchResults.length > 0 ? (
+                                        searchResults.map(result => {
+                                            const meta = CATEGORY_META[result.category] || CATEGORY_META.general;
+                                            return (
+                                                <div 
+                                                    key={result.id} 
+                                                    className="search-result-item"
+                                                    onClick={() => navigate(`/chat?category=${result.category || 'general'}&conversation=${result.id}`)}
+                                                >
+                                                    <div className="search-result-icon">{meta.icon}</div>
+                                                    <div className="search-result-info">
+                                                        <span className="search-result-title">{result.title}</span>
+                                                        <span className="search-result-meta">{meta.name} · {formatRelativeDate(result.updated_at)}</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    ) : (
+                                        <div className="search-result-item empty">No conversations found matching "{searchQuery}"</div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
-                        {/* Search Results Dropdown */}
-                        {searchQuery.trim() && (
-                            <div className="search-results-dropdown">
-                                {isSearching ? (
-                                    <div className="search-result-item loading">Searching...</div>
-                                ) : searchResults && searchResults.length > 0 ? (
-                                    searchResults.map(result => {
-                                        const meta = CATEGORY_META[result.category] || CATEGORY_META.general;
-                                        return (
-                                            <div 
-                                                key={result.id} 
-                                                className="search-result-item"
-                                                onClick={() => navigate(`/chat?category=${result.category || 'general'}`)}
-                                            >
-                                                <div className="search-result-icon">{meta.icon}</div>
-                                                <div className="search-result-info">
-                                                    <span className="search-result-title">{result.title}</span>
-                                                    <span className="search-result-meta">{meta.name} · {formatRelativeDate(result.updated_at)}</span>
-                                                </div>
-                                            </div>
-                                        );
-                                    })
-                                ) : (
-                                    <div className="search-result-item empty">No conversations found matching "{searchQuery}"</div>
+                        {/* Recent Conversations Toggle Button */}
+                        {!recentLoading && recentChats.length > 0 && (
+                            <div className="recent-dropdown-wrapper">
+                                <button 
+                                    className={`recent-toggle-btn ${showRecent ? 'active' : ''}`}
+                                    onClick={() => setShowRecent(!showRecent)}
+                                >
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <polyline points="12 6 12 12 16 14"></polyline>
+                                    </svg>
+                                    <span>Recent</span>
+                                    <span className="recent-count">{recentChats.length}</span>
+                                </button>
+
+                                {/* Dropdown Panel */}
+                                {showRecent && (
+                                    <div className="recent-dropdown-panel">
+                                        <div className="recent-dropdown-header">
+                                            <span>Recent Conversations</span>
+                                            <button className="recent-dropdown-close" onClick={() => setShowRecent(false)}>×</button>
+                                        </div>
+                                        <div className="recent-dropdown-list">
+                                            {recentChats.map((chat) => {
+                                                const meta = CATEGORY_META[chat.category] || CATEGORY_META.general;
+                                                return (
+                                                    <div
+                                                        key={chat.id}
+                                                        className="recent-chat-card"
+                                                        onClick={() => {
+                                                            setShowRecent(false);
+                                                            navigate(`/chat?category=${chat.category || 'general'}&conversation=${chat.id}`);
+                                                        }}
+                                                    >
+                                                        <div className="recent-chat-icon">{meta.icon}</div>
+                                                        <div className="recent-chat-info">
+                                                            <span className="recent-chat-title">{chat.title}</span>
+                                                            <span className="recent-chat-meta">
+                                                                {meta.name} · {formatRelativeDate(chat.updated_at)}
+                                                            </span>
+                                                        </div>
+                                                        <svg className="recent-chat-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                            <polyline points="9 18 15 12 9 6"></polyline>
+                                                        </svg>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
                                 )}
                             </div>
                         )}
                     </div>
                 </div>
-
-                {/* Recent Conversations Widget */}
-                {!recentLoading && recentChats.length > 0 && (
-                    <div className="recent-chats-section">
-                        <div className="section-label">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <polyline points="12 6 12 12 16 14"></polyline>
-                            </svg>
-                            <span>Continue where you left off</span>
-                        </div>
-                        <div className="recent-chats-grid">
-                            {recentChats.map((chat) => {
-                                const meta = CATEGORY_META[chat.category] || CATEGORY_META.general;
-                                return (
-                                    <div
-                                        key={chat.id}
-                                        className="recent-chat-card"
-                                        onClick={() => navigate(`/chat?category=${chat.category || 'general'}`)}
-                                    >
-                                        <div className="recent-chat-icon">{meta.icon}</div>
-                                        <div className="recent-chat-info">
-                                            <span className="recent-chat-title">{chat.title}</span>
-                                            <span className="recent-chat-meta">
-                                                {meta.name} · {formatRelativeDate(chat.updated_at)}
-                                            </span>
-                                        </div>
-                                        <svg className="recent-chat-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <polyline points="9 18 15 12 9 6"></polyline>
-                                        </svg>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
 
                 <div className="categories-grid">
                     {categories.map((category) => (

@@ -547,6 +547,36 @@
     margin-bottom: 0;
 }
 
+/* Clickable legal reference links (Article X, Section Y → Google Search) */
+.message-content .legal-ref-link {
+    color: var(--pk-green);
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1.5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: inherit;
+}
+
+.message-content .legal-ref-link:hover {
+    color: #0a5e2a;
+    text-decoration-style: solid;
+    background: var(--pk-green-soft);
+    border-radius: 3px;
+    padding: 0 2px;
+    margin: 0 -2px;
+}
+
+[data-theme="dark"] .message-content .legal-ref-link {
+    color: #4ade80;
+}
+
+[data-theme="dark"] .message-content .legal-ref-link:hover {
+    color: #86efac;
+    background: rgba(74, 222, 128, 0.1);
+}
+
 /* ============ MESSAGE ACTION BUTTONS (copy, feedback) ============ */
 .message-actions {
     display: flex;

@@ -138,6 +138,55 @@ const getFollowUpSuggestions = (category, currentQuestion, count = 3) => {
     return shuffled.slice(0, count);
 };
 
+/**
+ * Convert legal references (Article X, Section Y) in the model's response
+ * into clickable Google Search links so users can verify the law.
+ * 
+ * Handles both bold (**Article 25**) and plain (Article 25) formats.
+ * Captures trailing law abbreviations like PPC, CrPC, PECA, etc.
+ */
+const linkifyLegalReferences = (text) => {
+    if (!text) return text;
+
+    // Pattern breakdown:
+    //   (\*{2})?                           — optional opening bold **
+    //   ((?:Articles?|Sections?)\s+        — "Article" or "Section" (with optional plural)
+    //     \d+[A-Z]?                        — number + optional letter (e.g., 25A)
+    //     (?:\s*\(\d+\))?                  — optional sub-clause like (3) in Article 184(3)
+    //     (?:[-–]\d+[A-Z]?)?              — optional range like 8-28
+    //   )
+    //   (\s+(?:PPC|CrPC|CRPC|CPC|PECA|MFLO|TPA|PLA|PO|NAB))?  — optional law abbreviation
+    //   (\*{2})?                           — optional closing bold **
+    const pattern = /(\*{2})?((?:Articles?|Sections?)\s+\d+[A-Z]?(?:\s*\(\d+\))?(?:[-–]\d+[A-Z]?)?)(\s+(?:PPC|CrPC|CRPC|CPC|PECA|MFLO|TPA|PLA|PO|NAB))?(\*{2})?/gi;
+
+    // Don't process text inside existing markdown links [...](...) 
+    // Split by markdown links, process only non-link parts
+    const linkPattern = /(\[[^\]]*\]\([^)]*\))/g;
+    const parts = text.split(linkPattern);
+
+    const processed = parts.map(part => {
+        // If this part is already a markdown link, skip it
+        if (linkPattern.test(part)) {
+            linkPattern.lastIndex = 0; // reset regex state
+            return part;
+        }
+
+        return part.replace(pattern, (match, openBold, coreRef, lawAbbrev, closeBold) => {
+            const fullRef = (coreRef + (lawAbbrev || '')).trim();
+            const searchQuery = encodeURIComponent(fullRef + ' Pakistan law');
+            const googleUrl = `https://www.google.com/search?q=${searchQuery}`;
+            
+            // Keep bold formatting if it was bold originally
+            if (openBold && closeBold) {
+                return `[**${fullRef}**](${googleUrl})`;
+            }
+            return `[${fullRef}](${googleUrl})`;
+        });
+    });
+
+    return processed.join('');
+};
+
 function Chat() {
     const [searchParams] = useSearchParams();
     const category = searchParams.get('category') || 'general';
@@ -244,6 +293,14 @@ function Chat() {
     useEffect(() => {
         loadChatHistory();
     }, [loadChatHistory]);
+
+    // Auto-load a conversation if 'conversation' param is in the URL (from Dashboard click)
+    useEffect(() => {
+        const conversationId = searchParams.get('conversation');
+        if (conversationId) {
+            loadConversation(conversationId);
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Format date for sidebar display
     const formatDate = (dateString) => {
@@ -744,7 +801,22 @@ function Chat() {
                                         </div>
                                         <div className="message-content">
                                             {message.type === 'bot' ? (
-                                                <ReactMarkdown>{message.content}</ReactMarkdown>
+                                                <ReactMarkdown
+                                                    components={{
+                                                        a: ({ node, children, ...props }) => (
+                                                            <a
+                                                                {...props}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="legal-ref-link"
+                                                            >
+                                                                {children}
+                                                            </a>
+                                                        )
+                                                    }}
+                                                >
+                                                    {linkifyLegalReferences(message.content)}
+                                                </ReactMarkdown>
                                             ) : (
                                                 <p>{message.content}</p>
                                             )}
