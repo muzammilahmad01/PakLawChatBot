@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Auth.css';
+import logo from '../assets/logo.jpeg';
 
 function SignUp() {
     const [formData, setFormData] = useState({
@@ -96,7 +97,10 @@ function SignUp() {
         <div className="auth-container">
             <div className="auth-card">
                 <div className="auth-header">
-                    <h1>⚖️ PakLaw ChatBot</h1>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '8px' }}>
+                        <img src={logo} alt="PakLaw Logo" style={{ width: '40px', height: '40px', objectFit: 'contain', borderRadius: '8px' }} />
+                        <h1 style={{ margin: 0 }}>PakLaw ChatBot</h1>
+                    </div>
                     <p>Your AI Legal Assistant</p>
                 </div>
 

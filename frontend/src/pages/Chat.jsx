@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import ReactMarkdown from 'react-markdown';
 import toast, { Toaster } from 'react-hot-toast';
 import html2pdf from 'html2pdf.js';
+import logo from '../assets/logo.jpeg';
 import './Chat.css';
 
 // Category display names and icons
@@ -787,8 +788,8 @@ function Chat() {
                                     key={message.id}
                                     className={`message ${message.type === 'user' ? 'user-message' : 'bot-message'}`}
                                 >
-                                    <div className={`message-avatar ${message.type === 'user' ? 'user-msg-avatar' : 'bot-msg-avatar'}`}>
-                                        {message.type === 'bot' ? '⚖️' : userInitial}
+                                    <div className={`message-avatar ${message.type === 'user' ? 'user-msg-avatar' : 'bot-msg-avatar'}`} style={{ overflow: 'hidden' }}>
+                                        {message.type === 'bot' ? <img src={logo} alt="Bot" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : userInitial}
                                     </div>
                                     <div className="message-body">
                                         <div className="message-header">

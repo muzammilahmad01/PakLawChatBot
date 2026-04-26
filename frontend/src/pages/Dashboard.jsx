@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
+import logo from '../assets/logo.jpeg';
 import './Dashboard.css';
 
 // Category icons for recent conversations
@@ -179,7 +180,9 @@ function Dashboard() {
             {/* Header */}
             <header className="dashboard-header">
                 <div className="header-left">
-                    <div className="logo-badge">⚖️</div>
+                    <div className="logo-badge">
+                        <img src={logo} alt="PakLaw Logo" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 'inherit' }} />
+                    </div>
                     <div className="logo-text">
                         <h1>PakLawChatBot</h1>
                         <p className="logo-tagline">AI-Powered Legal Platform</p>
