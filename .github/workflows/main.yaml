@@ -3,7 +3,7 @@ name: PakLawChatBot Monorepo CI/CD
 on:
   push:
     branches:
-      - main        # ✅ Correct — simple list item
+      - main
     paths-ignore:
       - '.github/workflows/**'
 
