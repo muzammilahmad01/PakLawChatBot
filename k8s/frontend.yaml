@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: muzammil588/paklawchatbot-frontend:latest  # Your built Docker image
+          image: muzammil588/paklawchatbot-frontend:f1f85bd58abdf04254235f79d6e275fd5cb22272
           imagePullPolicy: Always
           ports:
             - containerPort: 80

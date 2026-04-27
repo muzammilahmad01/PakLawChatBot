@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: muzammil588/paklawchatbot-backend:latest  # Your built Docker image
+          image: muzammil588/paklawchatbot-backend:f1f85bd58abdf04254235f79d6e275fd5cb22272
           imagePullPolicy: Always         # Use local image (change for registry)
           ports:
             - containerPort: 5000
