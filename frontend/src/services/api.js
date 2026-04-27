@@ -1,7 +1,7 @@
 const API_URL = '';  // Empty = same origin, Nginx handles the proxy
 
 
-export const sendChatMessage = async (message, useRag = true, category = null) => {
+export const sendChatMessage = async (message, useRag = true, category = null, signal = null) => {
     try {
         const response = await fetch(`${API_URL}/api/chat`, {
             method: 'POST',
@@ -13,6 +13,7 @@ export const sendChatMessage = async (message, useRag = true, category = null) =
                 use_rag: useRag,
                 category: category,
             }),
+            signal: signal,
         });
 
         if (!response.ok) {

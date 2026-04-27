@@ -143,40 +143,73 @@ const getFollowUpSuggestions = (category, currentQuestion, count = 3) => {
  * Convert legal references (Article X, Section Y) in the model's response
  * into clickable Google Search links so users can verify the law.
  * 
- * Handles both bold (**Article 25**) and plain (Article 25) formats.
- * Captures trailing law abbreviations like PPC, CrPC, PECA, etc.
+ * Smart context: When a Section/Article has no abbreviation (PPC, CrPC, etc.),
+ * the function scans nearby text for the full Act/Ordinance name and includes
+ * it in the Google search query for accurate results.
+ * 
+ * Example: "Section 19" near "Extradition Act, 1972" will search for
+ *          "Section 19 Extradition Act 1972 Pakistan" instead of just
+ *          "Section 19 Pakistan law".
  */
 const linkifyLegalReferences = (text) => {
     if (!text) return text;
 
-    // Pattern breakdown:
-    //   (\*{2})?                           — optional opening bold **
-    //   ((?:Articles?|Sections?)\s+        — "Article" or "Section" (with optional plural)
-    //     \d+[A-Z]?                        — number + optional letter (e.g., 25A)
-    //     (?:\s*\(\d+\))?                  — optional sub-clause like (3) in Article 184(3)
-    //     (?:[-–]\d+[A-Z]?)?              — optional range like 8-28
-    //   )
-    //   (\s+(?:PPC|CrPC|CRPC|CPC|PECA|MFLO|TPA|PLA|PO|NAB))?  — optional law abbreviation
-    //   (\*{2})?                           — optional closing bold **
     const pattern = /(\*{2})?((?:Articles?|Sections?)\s+\d+[A-Z]?(?:\s*\(\d+\))?(?:[-–]\d+[A-Z]?)?)(\s+(?:PPC|CrPC|CRPC|CPC|PECA|MFLO|TPA|PLA|PO|NAB))?(\*{2})?/gi;
 
     // Don't process text inside existing markdown links [...](...) 
-    // Split by markdown links, process only non-link parts
     const linkPattern = /(\[[^\]]*\]\([^)]*\))/g;
     const parts = text.split(linkPattern);
 
     const processed = parts.map(part => {
         // If this part is already a markdown link, skip it
         if (linkPattern.test(part)) {
-            linkPattern.lastIndex = 0; // reset regex state
+            linkPattern.lastIndex = 0;
             return part;
         }
 
-        return part.replace(pattern, (match, openBold, coreRef, lawAbbrev, closeBold) => {
+        return part.replace(pattern, (match, openBold, coreRef, lawAbbrev, closeBold, offset) => {
             const fullRef = (coreRef + (lawAbbrev || '')).trim();
-            const searchQuery = encodeURIComponent(fullRef + ' Pakistan law');
+            let searchContext;
+
+            if (lawAbbrev) {
+                // Already has a clear abbreviation like PPC, CrPC — use as is
+                searchContext = fullRef + ' Pakistan law';
+            } else {
+                // No abbreviation — search surrounding text for Act/Ordinance/Code name
+                const windowStart = Math.max(0, offset - 200);
+                const windowEnd = Math.min(part.length, offset + match.length + 200);
+                const rawWindow = part.substring(windowStart, windowEnd);
+                // Strip markdown bold markers for cleaner regex matching
+                const cleanWindow = rawWindow.replace(/\*{2}/g, '');
+
+                // Match full Act/Ordinance/Code names with optional year
+                // e.g., "Extradition Act, 1972", "Security of Pakistan Act, 1952",
+                //        "Code of Criminal Procedure, 1898"
+                const actRegex = /([A-Z][a-zA-Z\s]+?(?:Act|Ordinance|Code|Rules|Order|Regulation)(?:,?\s*\d{4})?)/g;
+                const actMatches = [...cleanWindow.matchAll(actRegex)];
+
+                if (actMatches.length > 0) {
+                    // Find the Act name closest to our Section/Article reference
+                    const approxRefPos = offset - windowStart;
+                    let closestAct = actMatches[0][1].trim();
+                    let minDist = Infinity;
+
+                    for (const am of actMatches) {
+                        const dist = Math.abs(am.index - approxRefPos);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            closestAct = am[1].trim();
+                        }
+                    }
+                    searchContext = `${fullRef} ${closestAct} Pakistan`;
+                } else {
+                    searchContext = fullRef + ' Pakistan law';
+                }
+            }
+
+            const searchQuery = encodeURIComponent(searchContext);
             const googleUrl = `https://www.google.com/search?q=${searchQuery}`;
-            
+
             // Keep bold formatting if it was bold originally
             if (openBold && closeBold) {
                 return `[**${fullRef}**](${googleUrl})`;
@@ -205,7 +238,14 @@ function Chat() {
 
     const messagesEndRef = useRef(null);
     const textareaRef = useRef(null);
+    const abortControllerRef = useRef(null);
     const navigate = useNavigate();
+
+    const stopGenerating = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+    };
     const { user, profile, signOut } = useAuth();
     const { theme, toggleTheme } = useTheme();
 
@@ -495,7 +535,8 @@ function Chat() {
         await saveMessage(convId, 'user', messageText);
 
         try {
-            const result = await sendChatMessage(messageText, true, category);
+            abortControllerRef.current = new AbortController();
+            const result = await sendChatMessage(messageText, true, category, abortControllerRef.current.signal);
             // Save bot response to database first to get the real ID
             const savedMsg = await saveMessage(convId, 'bot', result.response);
 
@@ -515,16 +556,27 @@ function Chat() {
 
         } catch (error) {
             console.error('Error:', error);
-            const errorMessage = {
-                id: Date.now() + 1,
-                type: 'bot',
-                content: 'Sorry, I encountered an error. Please try again.',
-                timestamp: new Date()
-            };
-            setMessages(prev => [...prev, errorMessage]);
-            toast.error('Failed to get response. Please try again.');
+            if (error.name === 'AbortError') {
+                const errorMessage = {
+                    id: Date.now() + 1,
+                    type: 'bot',
+                    content: 'Generation stopped by user.',
+                    timestamp: new Date()
+                };
+                setMessages(prev => [...prev, errorMessage]);
+            } else {
+                const errorMessage = {
+                    id: Date.now() + 1,
+                    type: 'bot',
+                    content: 'Sorry, I encountered an error. Please try again.',
+                    timestamp: new Date()
+                };
+                setMessages(prev => [...prev, errorMessage]);
+                toast.error('Failed to get response. Please try again.');
+            }
         } finally {
             setIsLoading(false);
+            abortControllerRef.current = null;
         }
     };
 
@@ -734,7 +786,17 @@ function Chat() {
             {/* Main Content */}
             <main className="main-content">
                 {/* Top bar with category info */}
-                <div className="chat-topbar">
+                <div className="chat-topbar" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <button 
+                        onClick={() => navigate('/dashboard')} 
+                        style={{ background: 'transparent', border: '1px solid var(--border-light)', color: 'var(--text-secondary)', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9rem' }}
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                        Back
+                    </button>
                     <div className="topbar-category" style={{ background: catInfo.gradient }}>
                         <span>{catInfo.icon}</span>
                         <span>{catInfo.name}</span>
@@ -975,12 +1037,20 @@ function Chat() {
                                 disabled={isLoading}
                                 rows={1}
                             />
-                            <button type="submit" disabled={isLoading || !inputValue.trim()} className="send-btn">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <line x1="22" y1="2" x2="11" y2="13"></line>
-                                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                                </svg>
-                            </button>
+                            {isLoading ? (
+                                <button type="button" onClick={stopGenerating} className="send-btn stop-btn" style={{ background: '#ef4444', color: 'white', padding: '10px' }} title="Stop generating">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                        <rect x="5" y="5" width="14" height="14"></rect>
+                                    </svg>
+                                </button>
+                            ) : (
+                                <button type="submit" disabled={!inputValue.trim()} className="send-btn" title="Send message">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                    </svg>
+                                </button>
+                            )}
                         </form>
                     </div>
                     <p className="disclaimer">
