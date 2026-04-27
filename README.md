@@ -14,3 +14,7 @@ The chatbot now uses RAG to answer questions based on actual Pakistani law docum
 2. Add your GROQ_API_KEY to `.env`
 3. Ingest documents: `python ChatBot/ingest_documents.py test`
 4. Run the app: `streamlit run ChatBot/app.py`
+
+
+
+doing changes in readme to tets CI/CD Pipeline
