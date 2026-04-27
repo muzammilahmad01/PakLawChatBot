@@ -1,4 +1,30 @@
-# 1. Build & Push Backend
+name: PakLawChatBot Monorepo CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '.github/workflows/**'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          # Use your PAT to allow the action to push changes back
+          token: ${{ secrets.REPO_GITOPS_TOKEN }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # 1. Build & Push Backend
+      # 1. Build & Push Backend
       - name: Build and Push Backend
         uses: docker/build-push-action@v5
         with:
