@@ -2,7 +2,7 @@ name: PakLawChatBot Monorepo CI/CD
 
 on:
   push:
-    branches: [ "main" ]
+    branches: main
     # Only run if code or K8s files change, ignore the workflow itself to prevent loops
     paths-ignore:
       - '.github/workflows/**'
