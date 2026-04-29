@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: muzammil588/paklawchatbot-frontend:f1f85bd58abdf04254235f79d6e275fd5cb22272
+          image: muzammil588/paklawchatbot-frontend:0d12f8cd992de7d8b9736f9dc60b0d85f8235213
           imagePullPolicy: Always
           ports:
             - containerPort: 80
