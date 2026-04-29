@@ -151,17 +151,35 @@ const getFollowUpSuggestions = (category, currentQuestion, count = 3) => {
  *          "Section 19 Extradition Act 1972 Pakistan" instead of just
  *          "Section 19 Pakistan law".
  */
+/**
+ * Convert legal references (Article X, Section Y) in the model's response
+ * into clickable Google Search links so users can verify the law.
+ * 
+ * This version is highly robust:
+ * 1. Captures full references including multiple sub-clauses like Section 5(2)(a).
+ * 2. Captures the trailing Act name (e.g., "Section 19 of the Extradition Act")
+ *    so the entire phrase is a single clickable link.
+ * 3. Builds a high-precision Google search query.
+ */
 const linkifyLegalReferences = (text) => {
     if (!text) return text;
 
-    const pattern = /(\*{2})?((?:Articles?|Sections?)\s+\d+[A-Z]?(?:\s*\(\d+\))?(?:[-–]\d+[A-Z]?)?)(\s+(?:PPC|CrPC|CRPC|CPC|PECA|MFLO|TPA|PLA|PO|NAB))?(\*{2})?/gi;
+    // The 'pattern' now looks for:
+    // Group 1: Optional bold **
+    // Group 2: The Core Reference
+    //   - "Article" or "Section"
+    //   - Number + Letter (e.g., 25A)
+    //   - Multiple sub-clauses (e.g., (1)(a)(ii))
+    //   - Optional range (e.g., -10)
+    //   - Optional "of the [Act/Constitution/Code]" phrase
+    // Group 3: Optional Law Abbreviation (PPC, PECA, etc.)
+    // Group 4: Optional bold **
+    const pattern = /(\*{2})?((?:Articles?|Sections?)\s+\d+[A-Z]?(?:\s*\([\da-z]+\))*(?:[-–]\d+[A-Z]?)?(?:\s+of\s+(?:the\s+)?(?:[A-Z][a-zA-Z\s,]+?(?:Act|Ordinance|Code|Rules|Order|Regulation|Constitution)(?:\s+\d{4})?))?)(\s+(?:PPC|CrPC|CRPC|CPC|PECA|MFLO|TPA|PLA|PO|NAB))?(\*{2})?/gi;
 
-    // Don't process text inside existing markdown links [...](...) 
     const linkPattern = /(\[[^\]]*\]\([^)]*\))/g;
     const parts = text.split(linkPattern);
 
     const processed = parts.map(part => {
-        // If this part is already a markdown link, skip it
         if (linkPattern.test(part)) {
             linkPattern.lastIndex = 0;
             return part;
@@ -169,27 +187,24 @@ const linkifyLegalReferences = (text) => {
 
         return part.replace(pattern, (match, openBold, coreRef, lawAbbrev, closeBold, offset) => {
             const fullRef = (coreRef + (lawAbbrev || '')).trim();
-            let searchContext;
-
-            if (lawAbbrev) {
-                // Already has a clear abbreviation like PPC, CrPC — use as is
-                searchContext = fullRef + ' Pakistan law';
-            } else {
-                // No abbreviation — search surrounding text for Act/Ordinance/Code name
-                const windowStart = Math.max(0, offset - 200);
-                const windowEnd = Math.min(part.length, offset + match.length + 200);
-                const rawWindow = part.substring(windowStart, windowEnd);
-                // Strip markdown bold markers for cleaner regex matching
-                const cleanWindow = rawWindow.replace(/\*{2}/g, '');
-
-                // Match full Act/Ordinance/Code names with optional year
-                // e.g., "Extradition Act, 1972", "Security of Pakistan Act, 1952",
-                //        "Code of Criminal Procedure, 1898"
-                const actRegex = /([A-Z][a-zA-Z\s]+?(?:Act|Ordinance|Code|Rules|Order|Regulation)(?:,?\s*\d{4})?)/g;
+            
+            // Build the search query. If the reference already contains the Act name
+            // (captured by our greedy regex), we just append 'Pakistan'.
+            // Otherwise, we do a quick window scan as a fallback.
+            let searchContext = fullRef;
+            
+            const hasActInRef = /(?:Act|Ordinance|Code|Rules|Order|Regulation|Constitution|PPC|CrPC|CRPC|CPC|PECA|MFLO|TPA|PLA|PO|NAB)/i.test(fullRef);
+            
+            if (!hasActInRef) {
+                // Fallback: search surrounding text for Act name if not in the match
+                const windowStart = Math.max(0, offset - 150);
+                const windowEnd = Math.min(part.length, offset + match.length + 150);
+                const cleanWindow = part.substring(windowStart, windowEnd).replace(/\*{2}/g, '');
+                
+                const actRegex = /([A-Z][a-zA-Z\s]+?(?:Act|Ordinance|Code|Rules|Order|Regulation|Constitution)(?:,?\s*\d{4})?)/g;
                 const actMatches = [...cleanWindow.matchAll(actRegex)];
 
                 if (actMatches.length > 0) {
-                    // Find the Act name closest to our Section/Article reference
                     const approxRefPos = offset - windowStart;
                     let closestAct = actMatches[0][1].trim();
                     let minDist = Infinity;
@@ -201,16 +216,13 @@ const linkifyLegalReferences = (text) => {
                             closestAct = am[1].trim();
                         }
                     }
-                    searchContext = `${fullRef} ${closestAct} Pakistan`;
-                } else {
-                    searchContext = fullRef + ' Pakistan law';
+                    searchContext = `${fullRef} ${closestAct}`;
                 }
             }
 
-            const searchQuery = encodeURIComponent(searchContext);
+            const searchQuery = encodeURIComponent(searchContext + ' Pakistan law');
             const googleUrl = `https://www.google.com/search?q=${searchQuery}`;
 
-            // Keep bold formatting if it was bold originally
             if (openBold && closeBold) {
                 return `[**${fullRef}**](${googleUrl})`;
             }
