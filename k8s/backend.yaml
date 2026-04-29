@@ -23,8 +23,8 @@ spec:
     spec:
       containers:
         - name: backend
-          image: muzammil588/paklawchatbot-backend:latest  # Your built Docker image
-          imagePullPolicy: Always         # Use local image (change for registry)
+          image: muzammil588/paklawchatbot-backend:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 5000
               protocol: TCP
@@ -41,19 +41,18 @@ spec:
             limits:
               memory: "2Gi"
               cpu: "1000m"
-          # Health checks
           readinessProbe:
             httpGet:
               path: /api/health
               port: 5000
-            initialDelaySeconds: 30   # Embeddings take time to load
+            initialDelaySeconds: 120
             periodSeconds: 10
             timeoutSeconds: 5
           livenessProbe:
             httpGet:
               path: /api/health
               port: 5000
-            initialDelaySeconds: 60   # Give extra time for first startup
+            initialDelaySeconds: 180
             periodSeconds: 30
             timeoutSeconds: 5
       volumes:
