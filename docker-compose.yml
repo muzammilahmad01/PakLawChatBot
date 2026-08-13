@@ -3,26 +3,24 @@ services:
   # Backend: Python FastAPI
   # ================================
   backend:
-    build:
-      context: .                    # Build from project root
-      dockerfile: ChatBot/Dockerfile  # Use this Dockerfile
+    platform: linux/amd64
+    image: muzammil588/paklawchatbot-backend:latest
     ports:
-      - "5000:5000"                 # Map host port 5000 → container port 5000
+      - "5000:5000"
     env_file:
-      - ChatBot/.env                # Pass API keys from ChatBot/.env file (NOT baked in image!)
+      - ChatBot/.env
     volumes:
-      - ./ChatBot/vectorstores:/app/vectorstores  # Mount vector store data
+      - ./ChatBot/vectorstores:/app/vectorstores
     restart: unless-stopped
 
   # ================================
   # Frontend: React + Nginx
   # ================================
   frontend:
-    build:
-      context: ./frontend           # Build from frontend directory
-      dockerfile: Dockerfile
+    platform: linux/amd64
+    image: muzammil588/paklawchatbot-frontend:latest
     ports:
-      - "80:80"                     # Map host port 80 → container port 80
+      - "80:80"
     depends_on:
-      - backend                     # Start backend before frontend
+      - backend
     restart: unless-stopped
