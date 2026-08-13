@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: muzammil588/paklawchatbot-backend:0d12f8cd992de7d8b9736f9dc60b0d85f8235213
+          image: muzammil588/paklawchatbot-backend:678d1a64bfb917a1aba76624bfe13031265fc45e
           imagePullPolicy: Always
           ports:
             - containerPort: 5000
